@@ -36,21 +36,49 @@ function validateApkMagicBytes(buffer: Uint8Array): boolean {
 }
 
 function isAuthenticated(request: NextRequest): boolean {
-  const token = request.cookies.get("admin_token")?.value;
-  if (!token) return false;
-  try {
-    const decoded = JSON.parse(Buffer.from(token, "base64").toString("utf-8"));
-    return decoded.exp > Date.now();
-  } catch {
-    return false;
+  // Check cookie auth (same-domain requests via Cloudflare)
+  const cookieToken = request.cookies.get("admin_token")?.value;
+  if (cookieToken) {
+    try {
+      const decoded = JSON.parse(Buffer.from(cookieToken, "base64").toString("utf-8"));
+      if (decoded.exp > Date.now()) return true;
+    } catch {
+      // Invalid cookie token, fall through to header check
+    }
   }
+
+  // Check Authorization header (cross-domain requests to uploads subdomain)
+  const authHeader = request.headers.get("Authorization") || request.headers.get("x-auth-token");
+  if (authHeader) {
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    try {
+      const decoded = JSON.parse(Buffer.from(token, "base64").toString("utf-8"));
+      return decoded.exp > Date.now();
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+// CORS headers for cross-origin requests from resultscaleai.com to uploads.resultscaleai.com
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "https://resultscaleai.com",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, x-auth-token, Authorization",
+  "Access-Control-Allow-Credentials": "true",
+};
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
 }
 
 export async function POST(request: NextRequest) {
   try {
     // P0: Authentication check
     if (!isAuthenticated(request)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
     }
 
     // P2: Rate limiting
@@ -58,7 +86,7 @@ export async function POST(request: NextRequest) {
     if (!checkRateLimit(ip)) {
       return NextResponse.json(
         { error: "Too many uploads. Please wait before uploading again." },
-        { status: 429 }
+        { status: 429, headers: corsHeaders }
       );
     }
 
@@ -66,17 +94,17 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file") as File | null;
 
     if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+      return NextResponse.json({ error: "No file provided" }, { status: 400, headers: corsHeaders });
     }
 
     // P2: Validate file extension
     if (!file.name.endsWith(".apk")) {
-      return NextResponse.json({ error: "Only .apk files are allowed" }, { status: 400 });
+      return NextResponse.json({ error: "Only .apk files are allowed" }, { status: 400, headers: corsHeaders });
     }
 
     const maxSize = 500 * 1024 * 1024;
     if (file.size > maxSize) {
-      return NextResponse.json({ error: "File too large. Maximum size is 500MB" }, { status: 400 });
+      return NextResponse.json({ error: "File too large. Maximum size is 500MB" }, { status: 400, headers: corsHeaders });
     }
 
     // P2: Validate APK magic bytes (PK\x03\x04)
@@ -85,7 +113,7 @@ export async function POST(request: NextRequest) {
     if (!validateApkMagicBytes(magicBytes)) {
       return NextResponse.json(
         { error: "Invalid file format. Only valid APK files are accepted." },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -124,9 +152,9 @@ export async function POST(request: NextRequest) {
       filename: file.name,
       size: file.size,
       complete: true,
-    });
+    }, { headers: corsHeaders });
   } catch (error) {
     console.error("Upload error:", error);
-    return NextResponse.json({ error: "Failed to upload file" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to upload file" }, { status: 500, headers: corsHeaders });
   }
 }

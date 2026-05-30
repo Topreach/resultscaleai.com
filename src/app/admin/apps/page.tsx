@@ -30,6 +30,12 @@ const categories: AppCategory[] = [
   "AI Tools", "Security", "Utilities", "Entertainment",
 ];
 
+// Read admin token from localStorage (stored at login time for cross-domain uploads)
+function getAdminToken(): string {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem("admin_token") || "";
+}
+
 export default function AdminAppsPage() {
   const [apps, setApps] = useState<App[]>([]);
   const [loading, setLoading] = useState(true);
@@ -204,7 +210,11 @@ export default function AdminAppsPage() {
       setUploading(false);
     });
 
-    xhr.open("POST", "/api/upload/apk");
+    // Send upload directly to server IP to bypass Cloudflare's 100MB limit
+    // Auth is passed via x-auth-token header for cross-domain requests
+    const uploadUrl = "https://uploads.resultscaleai.com/api/upload/apk";
+    xhr.open("POST", uploadUrl);
+    xhr.setRequestHeader("x-auth-token", getAdminToken());
     xhr.send(formData);
   };
 
