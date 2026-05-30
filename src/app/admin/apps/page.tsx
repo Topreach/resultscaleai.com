@@ -146,7 +146,58 @@ export default function AdminAppsPage() {
     setForm({ ...form, features: form.features.filter((_, i) => i !== index) });
   };
 
-  const handleApkUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ─── Chunked upload with resume ───────────────────────────────────────────
+  const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
+  const MAX_RETRIES = 3;
+  const UPLOAD_URL = "https://uploads.resultscaleai.com/api/upload/apk";
+
+  /** Upload a single chunk with retry logic */
+  const uploadChunk = async (
+    file: File,
+    uploadId: string,
+    chunkIndex: number,
+    totalChunks: number
+  ): Promise<boolean> => {
+    const start = chunkIndex * CHUNK_SIZE;
+    const end = Math.min(start + CHUNK_SIZE, file.size);
+    const blob = file.slice(start, end);
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const formData = new FormData();
+        formData.append("uploadId", uploadId);
+        formData.append("chunkIndex", String(chunkIndex));
+        formData.append("chunk", blob, `chunk-${chunkIndex}`);
+
+        const res = await fetch(UPLOAD_URL, {
+          method: "POST",
+          headers: {
+            "x-upload-action": "chunk",
+            "x-auth-token": getAdminToken(),
+          },
+          body: formData,
+        });
+
+        if (res.ok) return true;
+
+        // If session expired (404), abort — caller will re-init
+        if (res.status === 404) return false;
+
+        // Otherwise retry
+        console.warn(`Chunk ${chunkIndex} failed (attempt ${attempt}/${MAX_RETRIES}): ${res.status}`);
+      } catch (err) {
+        console.warn(`Chunk ${chunkIndex} network error (attempt ${attempt}/${MAX_RETRIES}):`, err);
+      }
+
+      // Wait before retry (exponential backoff: 1s, 2s, 4s)
+      if (attempt < MAX_RETRIES) {
+        await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+      }
+    }
+    return false;
+  };
+
+  const handleApkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -155,7 +206,6 @@ export default function AdminAppsPage() {
       return;
     }
 
-    // P0: Client-side file size validation before upload
     const maxSize = 500 * 1024 * 1024; // 500MB
     if (file.size > maxSize) {
       setMessage(`File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size is 500MB.`);
@@ -167,55 +217,83 @@ export default function AdminAppsPage() {
     setUploadProgress(0);
     setMessage("");
 
-    const formData = new FormData();
-    formData.append("file", file);
+    try {
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      const token = getAdminToken();
 
-    const xhr = new XMLHttpRequest();
+      // ── Step 1: Init ──────────────────────────────────────────────────────
+      const initRes = await fetch(UPLOAD_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-upload-action": "init",
+          "x-auth-token": token,
+        },
+        body: JSON.stringify({
+          filename: file.name,
+          totalSize: file.size,
+          totalChunks,
+        }),
+      });
 
-    xhr.upload.addEventListener("progress", (event) => {
-      if (event.lengthComputable) {
-        const percent = Math.round((event.loaded / event.total) * 100);
-        setUploadProgress(percent);
+      if (!initRes.ok) {
+        const err = await initRes.json().catch(() => ({ error: "Init failed" }));
+        throw new Error(err.error || `Init failed (${initRes.status})`);
       }
-    });
 
-    xhr.addEventListener("load", () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const data = JSON.parse(xhr.responseText);
-          setForm({ ...form, apkUrl: data.url });
-          setMessage(`APK uploaded: ${data.filename}`);
-        } catch {
-          setMessage("Upload succeeded but invalid response");
+      const { uploadId, receivedChunks: existingChunks } = await initRes.json();
+      const receivedSet = new Set<number>(existingChunks || []);
+
+      // Store uploadId in sessionStorage for potential resume across page reloads
+      sessionStorage.setItem("apk_upload_id", uploadId);
+      sessionStorage.setItem("apk_upload_name", file.name);
+
+      // ── Step 2: Upload missing chunks ─────────────────────────────────────
+      for (let i = 0; i < totalChunks; i++) {
+        // Skip already-received chunks (resume support)
+        if (receivedSet.has(i)) continue;
+
+        const ok = await uploadChunk(file, uploadId, i, totalChunks);
+        if (!ok) {
+          // Session may have expired; try to re-init
+          throw new Error(`Failed to upload chunk ${i + 1}/${totalChunks} after ${MAX_RETRIES} retries`);
         }
-      } else {
-        try {
-          const err = JSON.parse(xhr.responseText);
-          setMessage(err.error || `Upload failed (${xhr.status})`);
-        } catch {
-          setMessage(`Upload failed (${xhr.status})`);
-        }
+
+        // Update progress based on completed chunks
+        receivedSet.add(i);
+        const progress = Math.round((receivedSet.size / totalChunks) * 100);
+        setUploadProgress(progress);
       }
+
+      // ── Step 3: Complete ──────────────────────────────────────────────────
+      const completeRes = await fetch(UPLOAD_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-upload-action": "complete",
+          "x-auth-token": token,
+        },
+        body: JSON.stringify({ uploadId }),
+      });
+
+      if (!completeRes.ok) {
+        const err = await completeRes.json().catch(() => ({ error: "Complete failed" }));
+        throw new Error(err.error || `Complete failed (${completeRes.status})`);
+      }
+
+      const data = await completeRes.json();
+      setForm({ ...form, apkUrl: data.url });
+      setMessage(`APK uploaded: ${data.filename}`);
+
+      // Cleanup session storage
+      sessionStorage.removeItem("apk_upload_id");
+      sessionStorage.removeItem("apk_upload_name");
+    } catch (err: unknown) {
+      setMessage(err instanceof Error ? err.message : "Failed to upload APK");
+    } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
-    });
-
-    xhr.addEventListener("error", () => {
-      setMessage("Failed to upload APK - network error");
-      setUploading(false);
-    });
-
-    xhr.addEventListener("abort", () => {
-      setMessage("Upload cancelled");
-      setUploading(false);
-    });
-
-    // Send upload directly to server IP to bypass Cloudflare's 100MB limit
-    // Auth is passed via x-auth-token header for cross-domain requests
-    const uploadUrl = "https://uploads.resultscaleai.com/api/upload/apk";
-    xhr.open("POST", uploadUrl);
-    xhr.setRequestHeader("x-auth-token", getAdminToken());
-    xhr.send(formData);
+    }
   };
 
   const removeApk = () => {
