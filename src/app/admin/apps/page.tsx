@@ -139,7 +139,7 @@ export default function AdminAppsPage() {
   const removeFeature = (index: number) => {
     setForm({ ...form, features: form.features.filter((_, i) => i !== index) });
   };
-  const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
+  const CHUNK_SIZE = 1024 * 1024; // 1MB per chunk (well under default body size limits)
 
   const handleApkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -164,7 +164,7 @@ export default function AdminAppsPage() {
         const chunk = file.slice(start, end);
 
         const formData = new FormData();
-        formData.append("file", chunk);
+        formData.append("file", chunk, file.name);
         formData.append("chunkIndex", String(i));
         formData.append("totalChunks", String(totalChunks));
         formData.append("uploadId", uploadId);
@@ -176,8 +176,14 @@ export default function AdminAppsPage() {
         });
 
         if (!res.ok) {
-          const err = await res.json().catch(() => ({ error: "Upload failed" }));
-          setMessage(err.error || "Upload failed");
+          let errorMsg = "Upload failed";
+          try {
+            const err = await res.json();
+            errorMsg = err.error || `Server error (${res.status})`;
+          } catch {
+            errorMsg = `Server error (${res.status})`;
+          }
+          setMessage(errorMsg);
           setUploading(false);
           if (fileInputRef.current) fileInputRef.current.value = "";
           return;
@@ -197,7 +203,7 @@ export default function AdminAppsPage() {
         }
       }
     } catch (err) {
-      setMessage("Failed to upload APK - network error");
+      setMessage(`Upload error: ${err instanceof Error ? err.message : "Network error"}`);
     }
 
     setUploading(false);

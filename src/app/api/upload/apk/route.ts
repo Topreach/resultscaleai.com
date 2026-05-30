@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { mkdir, writeFile, unlink, rename } from "fs/promises";
-import { createWriteStream, existsSync } from "fs";
+import { mkdir, writeFile, unlink } from "fs/promises";
+import { createWriteStream, readFileSync, rmSync, existsSync } from "fs";
 import path from "path";
 
 export const maxDuration = 300; // 5 minutes timeout for large uploads
 
-// Chunked upload: first request initializes, subsequent requests append chunks
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -19,8 +18,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    // Validate file type (only on first chunk or single upload)
-    if (!file.name.endsWith(".apk") && !originalName?.endsWith(".apk")) {
+    // Validate file type
+    const nameToCheck = originalName || file.name;
+    if (!nameToCheck.endsWith(".apk")) {
       return NextResponse.json({ error: "Only .apk files are allowed" }, { status: 400 });
     }
 
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
       // If this is the last chunk, merge all chunks into final file
       if (ci === tc - 1) {
-        const safeName = (originalName || file.name).replace(/[^a-zA-Z0-9._-]/g, "_");
+        const safeName = nameToCheck.replace(/[^a-zA-Z0-9._-]/g, "_");
         const timestamp = Date.now();
         const filename = `${timestamp}-${safeName}`;
         const filepath = path.join(apksDir, filename);
@@ -51,9 +51,8 @@ export async function POST(request: NextRequest) {
         // Merge chunks in order
         const writeStream = createWriteStream(filepath);
         for (let i = 0; i < tc; i++) {
-          const chunkPath = path.join(chunkDir, `chunk-${String(i).padStart(6, "0")}`);
-          const { readFileSync } = await import("fs");
-          writeStream.write(readFileSync(chunkPath));
+          const cp = path.join(chunkDir, `chunk-${String(i).padStart(6, "0")}`);
+          writeStream.write(readFileSync(cp));
         }
         writeStream.end();
 
@@ -63,7 +62,6 @@ export async function POST(request: NextRequest) {
         });
 
         // Clean up chunk directory
-        const { rmSync } = await import("fs");
         rmSync(chunkDir, { recursive: true, force: true });
 
         const url = `/apks/${filename}`;
@@ -74,19 +72,16 @@ export async function POST(request: NextRequest) {
     }
 
     // === SINGLE (NON-CHUNKED) UPLOAD ===
-    // Validate file size (max 500MB)
     const maxSize = 500 * 1024 * 1024;
     if (file.size > maxSize) {
       return NextResponse.json({ error: "File too large. Maximum size is 500MB" }, { status: 400 });
     }
 
-    // Generate unique filename
     const timestamp = Date.now();
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const filename = `${timestamp}-${safeName}`;
     const filepath = path.join(apksDir, filename);
 
-    // Write file using stream
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const writeStream = createWriteStream(filepath);
