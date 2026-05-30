@@ -61,6 +61,10 @@ export default function DownloadsPage() {
                     <a
                       href={app.apkUrl}
                       download
+                      onClick={() => {
+                        // P1: Track download asynchronously
+                        fetch(`/api/apps/${app.id}/download`, { method: "POST" }).catch(() => {});
+                      }}
                       className="flex-1 sm:flex-none text-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-cyan-500 rounded-lg hover:from-indigo-700 hover:to-cyan-600 transition-all duration-200"
                     >
                       Download APK

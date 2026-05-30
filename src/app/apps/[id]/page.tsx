@@ -226,6 +226,10 @@ export default function AppDetailPage() {
                 <a
                   href={app.apkUrl}
                   download
+                  onClick={() => {
+                    // P1: Track download asynchronously
+                    fetch(`/api/apps/${app.id}/download`, { method: "POST" }).catch(() => {});
+                  }}
                   className="block w-full text-center px-6 py-3.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-cyan-500 rounded-xl hover:from-indigo-700 hover:to-cyan-600 transition-all duration-200 shadow-lg shadow-indigo-500/25 mb-4"
                 >
                   Download APK

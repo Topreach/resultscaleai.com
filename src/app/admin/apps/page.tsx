@@ -97,7 +97,7 @@ export default function AdminAppsPage() {
     try {
       const appData = {
         ...form,
-        id: editingId || Date.now().toString(),
+        id: editingId || crypto.randomUUID(),
         updatedDate: new Date().toISOString().split("T")[0],
       };
 
@@ -146,6 +146,14 @@ export default function AdminAppsPage() {
 
     if (!file.name.endsWith(".apk")) {
       setMessage("Only .apk files are allowed");
+      return;
+    }
+
+    // P0: Client-side file size validation before upload
+    const maxSize = 500 * 1024 * 1024; // 500MB
+    if (file.size > maxSize) {
+      setMessage(`File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size is 500MB.`);
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
