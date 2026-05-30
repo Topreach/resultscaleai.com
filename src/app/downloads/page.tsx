@@ -58,17 +58,24 @@ export default function DownloadsPage() {
                     Release Notes
                   </Link>
                   {app.apkUrl ? (
-                    <a
-                      href={app.apkUrl}
-                      download
-                      onClick={() => {
-                        // P1: Track download asynchronously
-                        fetch(`/api/apps/${app.id}/download`, { method: "POST" }).catch(() => {});
+                    <button
+                      onClick={async () => {
+                        try {
+                          // Track download and get the file URL
+                          const res = await fetch(`/api/apps/${app.id}/download`, { method: "POST" });
+                          if (!res.ok) throw new Error("Download failed");
+                          const { url } = await res.json();
+                          // Open the file URL in a new tab (triggers browser download)
+                          window.open(url, "_blank");
+                        } catch {
+                          // Fallback: navigate directly to the URL
+                          window.open(app.apkUrl, "_blank");
+                        }
                       }}
-                      className="flex-1 sm:flex-none text-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-cyan-500 rounded-lg hover:from-indigo-700 hover:to-cyan-600 transition-all duration-200"
+                      className="flex-1 sm:flex-none text-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-cyan-500 rounded-lg hover:from-indigo-700 hover:to-cyan-600 transition-all duration-200 cursor-pointer"
                     >
                       Download APK
-                    </a>
+                    </button>
                   ) : (
                     <Link
                       href={`/apps/${app.id}#download`}

@@ -294,7 +294,8 @@ async function handleComplete(request: NextRequest): Promise<NextResponse> {
 
     uploadSessions.delete(uploadId);
 
-    const url = `/apks/${finalFilename}`;
+    // Return full URL pointing to the uploads server where the file physically lives
+    const url = `https://uploads.resultscaleai.com/apks/${finalFilename}`;
 
     return NextResponse.json({
       url,

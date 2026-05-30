@@ -223,17 +223,24 @@ export default function AppDetailPage() {
               </div>
 
               {app.apkUrl ? (
-                <a
-                  href={app.apkUrl}
-                  download
-                  onClick={() => {
-                    // P1: Track download asynchronously
-                    fetch(`/api/apps/${app.id}/download`, { method: "POST" }).catch(() => {});
+                <button
+                  onClick={async () => {
+                    try {
+                      // Track download and get the file URL
+                      const res = await fetch(`/api/apps/${app.id}/download`, { method: "POST" });
+                      if (!res.ok) throw new Error("Download failed");
+                      const { url } = await res.json();
+                      // Open the file URL in a new tab (triggers browser download)
+                      window.open(url, "_blank");
+                    } catch {
+                      // Fallback: navigate directly to the URL
+                      window.open(app.apkUrl, "_blank");
+                    }
                   }}
-                  className="block w-full text-center px-6 py-3.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-cyan-500 rounded-xl hover:from-indigo-700 hover:to-cyan-600 transition-all duration-200 shadow-lg shadow-indigo-500/25 mb-4"
+                  className="block w-full text-center px-6 py-3.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-cyan-500 rounded-xl hover:from-indigo-700 hover:to-cyan-600 transition-all duration-200 shadow-lg shadow-indigo-500/25 mb-4 cursor-pointer"
                 >
                   Download APK
-                </a>
+                </button>
               ) : (
                 <div className="block w-full text-center px-6 py-3.5 text-sm font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-xl mb-4 cursor-not-allowed">
                   APK Not Available
