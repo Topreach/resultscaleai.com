@@ -75,7 +75,7 @@ function isAuthenticated(request: NextRequest): boolean {
 const corsHeaders = {
   "Access-Control-Allow-Origin": "https://resultscaleai.com",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, x-auth-token, Authorization",
+  "Access-Control-Allow-Headers": "Content-Type, x-auth-token, Authorization, x-upload-action",
   "Access-Control-Allow-Credentials": "true",
 };
 
