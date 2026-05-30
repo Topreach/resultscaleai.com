@@ -38,6 +38,7 @@ export default function AdminAppsPage() {
   const [form, setForm] = useState<App>({ ...emptyApp });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [message, setMessage] = useState("");
   const [, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -138,42 +139,64 @@ export default function AdminAppsPage() {
   const removeFeature = (index: number) => {
     setForm({ ...form, features: form.features.filter((_, i) => i !== index) });
   };
+const handleApkUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-  const handleApkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  if (!file.name.endsWith(".apk")) {
+    setMessage("Only .apk files are allowed");
+    return;
+  }
 
-    if (!file.name.endsWith(".apk")) {
-      setMessage("Only .apk files are allowed");
-      return;
+  setUploading(true);
+  setUploadProgress(0);
+  setMessage("");
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const xhr = new XMLHttpRequest();
+
+  xhr.upload.addEventListener("progress", (event) => {
+    if (event.lengthComputable) {
+      const percent = Math.round((event.loaded / event.total) * 100);
+      setUploadProgress(percent);
     }
+  });
 
-    setUploading(true);
-    setMessage("");
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/upload/apk", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
+  xhr.addEventListener("load", () => {
+    if (xhr.status >= 200 && xhr.status < 300) {
+      try {
+        const data = JSON.parse(xhr.responseText);
         setForm({ ...form, apkUrl: data.url });
         setMessage(`APK uploaded: ${data.filename}`);
-      } else {
-        const err = await res.json();
-        setMessage(err.error || "Upload failed");
+      } catch {
+        setMessage("Upload succeeded but invalid response");
       }
-    } catch (err) {
-      setMessage("Failed to upload APK");
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+    } else {
+      try {
+        const err = JSON.parse(xhr.responseText);
+        setMessage(err.error || "Upload failed");
+      } catch {
+        setMessage("Upload failed");
+      }
     }
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  });
+
+  xhr.addEventListener("error", () => {
+    setMessage("Failed to upload APK");
+    setUploading(false);
+  });
+
+  xhr.addEventListener("abort", () => {
+    setMessage("Upload cancelled");
+    setUploading(false);
+  });
+
+  xhr.open("POST", "/api/upload/apk");
+  xhr.send(formData);
   };
 
   const removeApk = () => {
@@ -313,17 +336,34 @@ export default function AdminAppsPage() {
                     disabled={uploading}
                     className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-indigo-50 dark:file:bg-indigo-900/20 file:text-indigo-600 dark:file:text-indigo-400 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-900/40 cursor-pointer disabled:opacity-50"
                   />
-                  {uploading && (
-                    <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin shrink-0"></div>
-                  )}
                 </div>
-                {form.apkUrl && (
+
+                {/* Upload Progress Bar */}
+                {uploading && (
+                  <div className="mt-3 space-y-1">
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>Uploading APK...</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-indigo-500 to-cyan-500 rounded-full transition-all duration-300 ease-out"
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+
+                {form.apkUrl && !uploading && (
                   <div className="mt-2 flex items-center gap-2 text-sm">
+                    <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
                     <span className="text-green-600 dark:text-green-400">APK uploaded</span>
                     <button
                       type="button"
                       onClick={removeApk}
-                      className="text-red-500 hover:text-red-700 text-xs underline"
+                      className="text-red-500 hover:text-red-700 text-xs underline ml-2"
                     >
                       Remove
                     </button>
