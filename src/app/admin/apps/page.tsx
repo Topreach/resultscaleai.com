@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useTransition, useRef } from "react";
 import { App, AppCategory } from "@/types";
+import { uploadApk } from "@/lib/actions/uploadApk";
 
 const emptyApp = {
   id: "",
@@ -139,7 +140,7 @@ export default function AdminAppsPage() {
   const removeFeature = (index: number) => {
     setForm({ ...form, features: form.features.filter((_, i) => i !== index) });
   };
-  const handleApkUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleApkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -152,51 +153,21 @@ export default function AdminAppsPage() {
     setUploadProgress(0);
     setMessage("");
 
-    const formData = new FormData();
-    formData.append("file", file);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
 
-    const xhr = new XMLHttpRequest();
+      const result = await uploadApk(formData);
 
-    xhr.upload.addEventListener("progress", (event) => {
-      if (event.lengthComputable) {
-        const percent = Math.round((event.loaded / event.total) * 100);
-        setUploadProgress(percent);
-      }
-    });
-
-    xhr.addEventListener("load", () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const data = JSON.parse(xhr.responseText);
-          setForm({ ...form, apkUrl: data.url });
-          setMessage(`APK uploaded: ${data.filename}`);
-        } catch {
-          setMessage("Upload succeeded but invalid response");
-        }
-      } else {
-        try {
-          const err = JSON.parse(xhr.responseText);
-          setMessage(err.error || `Upload failed (${xhr.status})`);
-        } catch {
-          setMessage(`Upload failed (${xhr.status})`);
-        }
-      }
+      setForm({ ...form, apkUrl: result.url });
+      setMessage(`APK uploaded: ${result.filename}`);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to upload APK";
+      setMessage(errorMessage);
+    } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
-    });
-
-    xhr.addEventListener("error", () => {
-      setMessage("Failed to upload APK - network error");
-      setUploading(false);
-    });
-
-    xhr.addEventListener("abort", () => {
-      setMessage("Upload cancelled");
-      setUploading(false);
-    });
-
-    xhr.open("POST", "/api/upload/apk");
-    xhr.send(formData);
+    }
   };
 
   const removeApk = () => {
@@ -343,12 +314,11 @@ export default function AdminAppsPage() {
                   <div className="mt-3 space-y-1">
                     <div className="flex items-center justify-between text-xs text-gray-500">
                       <span>Uploading APK...</span>
-                      <span>{uploadProgress}%</span>
+                      <span className="text-indigo-500">Uploading</span>
                     </div>
                     <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-gradient-to-r from-indigo-500 to-cyan-500 rounded-full transition-all duration-300 ease-out"
-                        style={{ width: `${uploadProgress}%` }}
+                        className="h-full w-1/2 bg-gradient-to-r from-indigo-500 to-cyan-500 rounded-full animate-pulse"
                       ></div>
                     </div>
                   </div>
