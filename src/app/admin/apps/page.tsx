@@ -139,64 +139,69 @@ export default function AdminAppsPage() {
   const removeFeature = (index: number) => {
     setForm({ ...form, features: form.features.filter((_, i) => i !== index) });
   };
-const handleApkUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
+  const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
 
-  if (!file.name.endsWith(".apk")) {
-    setMessage("Only .apk files are allowed");
-    return;
-  }
+  const handleApkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  setUploading(true);
-  setUploadProgress(0);
-  setMessage("");
-
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const xhr = new XMLHttpRequest();
-
-  xhr.upload.addEventListener("progress", (event) => {
-    if (event.lengthComputable) {
-      const percent = Math.round((event.loaded / event.total) * 100);
-      setUploadProgress(percent);
+    if (!file.name.endsWith(".apk")) {
+      setMessage("Only .apk files are allowed");
+      return;
     }
-  });
 
-  xhr.addEventListener("load", () => {
-    if (xhr.status >= 200 && xhr.status < 300) {
-      try {
-        const data = JSON.parse(xhr.responseText);
-        setForm({ ...form, apkUrl: data.url });
-        setMessage(`APK uploaded: ${data.filename}`);
-      } catch {
-        setMessage("Upload succeeded but invalid response");
+    setUploading(true);
+    setUploadProgress(0);
+    setMessage("");
+
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    const uploadId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    try {
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunk = file.slice(start, end);
+
+        const formData = new FormData();
+        formData.append("file", chunk);
+        formData.append("chunkIndex", String(i));
+        formData.append("totalChunks", String(totalChunks));
+        formData.append("uploadId", uploadId);
+        formData.append("originalName", file.name);
+
+        const res = await fetch("/api/upload/apk", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "Upload failed" }));
+          setMessage(err.error || "Upload failed");
+          setUploading(false);
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          return;
+        }
+
+        const data = await res.json();
+
+        // If this was the last chunk, we get the final result
+        if (data.complete) {
+          setForm({ ...form, apkUrl: data.url });
+          setMessage(`APK uploaded: ${data.filename}`);
+          setUploadProgress(100);
+        } else {
+          // Update progress based on chunks completed
+          const percent = Math.round(((i + 1) / totalChunks) * 100);
+          setUploadProgress(percent);
+        }
       }
-    } else {
-      try {
-        const err = JSON.parse(xhr.responseText);
-        setMessage(err.error || "Upload failed");
-      } catch {
-        setMessage("Upload failed");
-      }
+    } catch (err) {
+      setMessage("Failed to upload APK - network error");
     }
+
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
-  });
-
-  xhr.addEventListener("error", () => {
-    setMessage("Failed to upload APK");
-    setUploading(false);
-  });
-
-  xhr.addEventListener("abort", () => {
-    setMessage("Upload cancelled");
-    setUploading(false);
-  });
-
-  xhr.open("POST", "/api/upload/apk");
-  xhr.send(formData);
   };
 
   const removeApk = () => {
