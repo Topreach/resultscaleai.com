@@ -57,12 +57,22 @@ export default function DownloadsPage() {
                   >
                     Release Notes
                   </Link>
-                  <Link
-                    href={`/apps/${app.id}#download`}
-                    className="flex-1 sm:flex-none text-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-cyan-500 rounded-lg hover:from-indigo-700 hover:to-cyan-600 transition-all duration-200"
-                  >
-                    Download APK
-                  </Link>
+                  {app.apkUrl ? (
+                    <a
+                      href={app.apkUrl}
+                      download
+                      className="flex-1 sm:flex-none text-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-cyan-500 rounded-lg hover:from-indigo-700 hover:to-cyan-600 transition-all duration-200"
+                    >
+                      Download APK
+                    </a>
+                  ) : (
+                    <Link
+                      href={`/apps/${app.id}#download`}
+                      className="flex-1 sm:flex-none text-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-cyan-500 rounded-lg hover:from-indigo-700 hover:to-cyan-600 transition-all duration-200"
+                    >
+                      Download APK
+                    </Link>
+                  )}
                 </div>
               </div>
             ))}

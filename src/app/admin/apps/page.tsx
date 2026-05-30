@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useRef } from "react";
 import { App, AppCategory } from "@/types";
 
 const emptyApp = {
@@ -22,6 +22,7 @@ const emptyApp = {
   safety: { virusScanned: true, secureDownload: true, sha256Hash: "" },
   rating: 0,
   developer: "ResultScale AI",
+  apkUrl: "",
 };
 
 const categories: AppCategory[] = [
@@ -36,8 +37,10 @@ export default function AdminAppsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<App>({ ...emptyApp });
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [, startTransition] = useTransition();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchApps = async () => {
     try {
@@ -134,6 +137,47 @@ export default function AdminAppsPage() {
 
   const removeFeature = (index: number) => {
     setForm({ ...form, features: form.features.filter((_, i) => i !== index) });
+  };
+
+  const handleApkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith(".apk")) {
+      setMessage("Only .apk files are allowed");
+      return;
+    }
+
+    setUploading(true);
+    setMessage("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload/apk", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setForm({ ...form, apkUrl: data.url });
+        setMessage(`APK uploaded: ${data.filename}`);
+      } else {
+        const err = await res.json();
+        setMessage(err.error || "Upload failed");
+      }
+    } catch (err) {
+      setMessage("Failed to upload APK");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const removeApk = () => {
+    setForm({ ...form, apkUrl: "" });
   };
 
   if (loading) {
@@ -257,6 +301,39 @@ export default function AdminAppsPage() {
                 />
               </div>
 
+              {/* APK Upload */}
+              <div>
+                <label className="block text-sm font-medium mb-2">APK File</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".apk"
+                    onChange={handleApkUpload}
+                    disabled={uploading}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-indigo-50 dark:file:bg-indigo-900/20 file:text-indigo-600 dark:file:text-indigo-400 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-900/40 cursor-pointer disabled:opacity-50"
+                  />
+                  {uploading && (
+                    <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin shrink-0"></div>
+                  )}
+                </div>
+                {form.apkUrl && (
+                  <div className="mt-2 flex items-center gap-2 text-sm">
+                    <span className="text-green-600 dark:text-green-400">APK uploaded</span>
+                    <button
+                      type="button"
+                      onClick={removeApk}
+                      className="text-red-500 hover:text-red-700 text-xs underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+                <p className="mt-1 text-xs text-gray-400">
+                  Upload your .apk file (max 500MB). The file will be stored in the public/apks/ directory.
+                </p>
+              </div>
+
               {/* Features */}
               <div>
                 <label className="block text-sm font-medium mb-2">Features</label>
@@ -302,7 +379,7 @@ export default function AdminAppsPage() {
                 <th className="text-left px-6 py-4 text-sm font-semibold text-gray-500">Category</th>
                 <th className="text-left px-6 py-4 text-sm font-semibold text-gray-500">Version</th>
                 <th className="text-left px-6 py-4 text-sm font-semibold text-gray-500">Downloads</th>
-                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-500">Status</th>
+                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-500">APK</th>
                 <th className="text-right px-6 py-4 text-sm font-semibold text-gray-500">Actions</th>
               </tr>
             </thead>
@@ -328,9 +405,15 @@ export default function AdminAppsPage() {
                     <td className="px-6 py-4 text-sm">v{app.version}</td>
                     <td className="px-6 py-4 text-sm">{app.downloads?.toLocaleString() || 0}</td>
                     <td className="px-6 py-4">
-                      <span className="px-2.5 py-1 text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full">
-                        Published
-                      </span>
+                      {app.apkUrl ? (
+                        <span className="px-2.5 py-1 text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full">
+                          Uploaded
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-full">
+                          None
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">

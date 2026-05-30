@@ -222,12 +222,19 @@ export default function AppDetailPage() {
                 <div className="text-sm text-gray-500">APK Size: {app.size}</div>
               </div>
 
-              <Link
-                href="#"
-                className="block w-full text-center px-6 py-3.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-cyan-500 rounded-xl hover:from-indigo-700 hover:to-cyan-600 transition-all duration-200 shadow-lg shadow-indigo-500/25 mb-4"
-              >
-                Download APK
-              </Link>
+              {app.apkUrl ? (
+                <a
+                  href={app.apkUrl}
+                  download
+                  className="block w-full text-center px-6 py-3.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-cyan-500 rounded-xl hover:from-indigo-700 hover:to-cyan-600 transition-all duration-200 shadow-lg shadow-indigo-500/25 mb-4"
+                >
+                  Download APK
+                </a>
+              ) : (
+                <div className="block w-full text-center px-6 py-3.5 text-sm font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-xl mb-4 cursor-not-allowed">
+                  APK Not Available
+                </div>
+              )}
 
               {/* Safety Verification */}
               <div className="space-y-2 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">

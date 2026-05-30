@@ -17,6 +17,7 @@ export interface App {
   safety: SafetyInfo;
   rating: number;
   developer: string;
+  apkUrl?: string;
 }
 
 export type AppCategory =

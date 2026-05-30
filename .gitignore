@@ -44,3 +44,6 @@ next-env.d.ts
 # data directory - contains admin content (apps, blog, contacts, settings)
 # This stays on the server so git pull doesn't overwrite your data
 /data/
+
+# uploaded APK files
+/public/apks/
