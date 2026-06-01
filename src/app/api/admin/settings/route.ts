@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminSettings, updateAdminPassword } from "@/lib/store/db";
+import { getAdminSettings, updateAdminPassword, updateGoogleConfig } from "@/lib/store/db";
 
 // GET /api/admin/settings - Get admin settings (excluding password)
 export async function GET() {
@@ -7,6 +7,7 @@ export async function GET() {
     const settings = getAdminSettings();
     return NextResponse.json({
       email: settings.email,
+      google: settings.google,
     });
   } catch {
     return NextResponse.json(
@@ -16,39 +17,46 @@ export async function GET() {
   }
 }
 
-// PUT /api/admin/settings - Update admin password
+// PUT /api/admin/settings - Update admin password or Google config
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { currentPassword, newPassword } = body;
 
-    if (!currentPassword || !newPassword) {
-      return NextResponse.json(
-        { error: "Current password and new password are required" },
-        { status: 400 }
-      );
+    // Update password
+    if (body.currentPassword && body.newPassword) {
+      const { currentPassword, newPassword } = body;
+
+      if (newPassword.length < 6) {
+        return NextResponse.json(
+          { error: "New password must be at least 6 characters" },
+          { status: 400 }
+        );
+      }
+
+      const settings = getAdminSettings();
+
+      // Verify current password
+      if (currentPassword !== settings.passwordHash) {
+        return NextResponse.json(
+          { error: "Current password is incorrect" },
+          { status: 401 }
+        );
+      }
+
+      updateAdminPassword(newPassword);
+      return NextResponse.json({ success: true, message: "Password updated successfully" });
     }
 
-    if (newPassword.length < 6) {
-      return NextResponse.json(
-        { error: "New password must be at least 6 characters" },
-        { status: 400 }
-      );
+    // Update Google config
+    if (body.google) {
+      updateGoogleConfig(body.google);
+      return NextResponse.json({ success: true, message: "Google configuration saved" });
     }
 
-    const settings = getAdminSettings();
-
-    // Verify current password
-    if (currentPassword !== settings.passwordHash) {
-      return NextResponse.json(
-        { error: "Current password is incorrect" },
-        { status: 401 }
-      );
-    }
-
-    updateAdminPassword(newPassword);
-
-    return NextResponse.json({ success: true, message: "Password updated successfully" });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 }
+    );
   } catch {
     return NextResponse.json(
       { error: "Failed to update settings" },

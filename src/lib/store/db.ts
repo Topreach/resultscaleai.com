@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { App, BlogPost, ContactRequest, MonetizationConfig } from "@/types";
+import { App, BlogPost, ContactRequest, MonetizationConfig, GoogleConfig } from "@/types";
 import { apps as seedApps, blogPosts as seedBlogPosts } from "@/lib/data";
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -136,11 +136,19 @@ export function seedInitialData(): void {
 export interface AdminSettings {
   email: string;
   passwordHash: string;
+  google: GoogleConfig;
 }
 
 const DEFAULT_SETTINGS: AdminSettings = {
   email: "admin@resultscaleai.com",
   passwordHash: "admin123", // plain text for simplicity; in production use bcrypt
+  google: {
+    searchConsoleVerification: "",
+    recaptchaSiteKey: "",
+    recaptchaSecretKey: "",
+    analyticsMeasurementId: "",
+    tagManagerId: "",
+  },
 };
 export function getAdminSettings(): AdminSettings {
   return readJSON<AdminSettings>("admin.json", DEFAULT_SETTINGS);
@@ -149,6 +157,12 @@ export function getAdminSettings(): AdminSettings {
 export function updateAdminPassword(newPassword: string): void {
   const settings = getAdminSettings();
   settings.passwordHash = newPassword;
+  writeJSON("admin.json", settings);
+}
+
+export function updateGoogleConfig(google: GoogleConfig): void {
+  const settings = getAdminSettings();
+  settings.google = google;
   writeJSON("admin.json", settings);
 }
 

@@ -206,3 +206,12 @@ export interface MembershipTier {
   price: number;
   features: string[];
 }
+
+// ===== GOOGLE CONFIG =====
+export interface GoogleConfig {
+  searchConsoleVerification: string;   // Google Search Console meta tag content
+  recaptchaSiteKey: string;            // reCAPTCHA v2/v3 site key
+  recaptchaSecretKey: string;          // reCAPTCHA v2/v3 secret key
+  analyticsMeasurementId: string;      // Google Analytics G-XXXXXXXXXX
+  tagManagerId: string;                // Google Tag Manager GTM-XXXXXXX
+}
