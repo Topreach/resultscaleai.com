@@ -1,3 +1,4 @@
+import { hashPassword } from "@/lib/passwords";
 import fs from "fs";
 import path from "path";
 import { App, BlogPost, ContactRequest, MonetizationConfig, GoogleConfig } from "@/types";
@@ -21,15 +22,67 @@ function readJSON<T>(filename: string, fallback: T): T {
   try {
     const raw = fs.readFileSync(filePath, "utf-8");
     return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
+  } catch (error) {
+    throw new Error(`Cannot read ${filename}; restore the data file before making changes.`, { cause: error });
   }
 }
 
 function writeJSON<T>(filename: string, data: T): void {
   ensureDir();
   const filePath = path.join(DATA_DIR, filename);
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+  const temporary = `${filePath}.${crypto.randomUUID()}.tmp`;
+  fs.writeFileSync(temporary, JSON.stringify(data, null, 2), { encoding: "utf-8", mode: 0o600 });
+  fs.renameSync(temporary, filePath);
+}
+
+export interface AdminSession { hash: string; email: string; expiresAt: number }
+export const getSessions = () => readJSON<AdminSession[]>("sessions.json", []);
+export const saveSessions = (sessions: AdminSession[]) => writeJSON("sessions.json", sessions);
+
+export interface AccountUser {
+  id: string; name: string; email: string; passwordHash: string;
+  downloads: string[]; favorites: string[]; createdAt: string; active: boolean;
+}
+export interface AccountSession { hash: string; userId: string; expiresAt: number }
+export const getUsers = () => readJSON<AccountUser[]>("users.json", []);
+export const saveUsers = (users: AccountUser[]) => writeJSON("users.json", users);
+export const getAccountSessions = () => readJSON<AccountSession[]>("account-sessions.json", []);
+export const saveAccountSessions = (sessions: AccountSession[]) => writeJSON("account-sessions.json", sessions);
+
+export interface SecurityReport {
+  id: string; client: string; type: string; date: string;
+  status: "In Progress" | "Completed"; findings: number; critical: number; summary: string;
+}
+export const getReports = () => readJSON<SecurityReport[]>("reports.json", []);
+export const saveReports = (reports: SecurityReport[]) => writeJSON("reports.json", reports);
+
+export interface PaymentOrder {
+  reference: string;
+  productId: string;
+  kind: "subscription" | "service";
+  name: string;
+  email: string;
+  amount: number;
+  currency: string;
+  interval?: "month" | "year";
+  status: "pending" | "paid";
+  createdAt: string;
+  transactionId?: string;
+  transactionIds?: string[];
+}
+export const getOrders = () => readJSON<PaymentOrder[]>("orders.json", []);
+export function createOrder(order: PaymentOrder) { writeJSON("orders.json", [...getOrders(), order]); }
+export function markOrderPaid(reference: string, transactionId: string) {
+  const orders = getOrders();
+  const order = orders.find((o) => o.reference === reference);
+  if (!order) throw new Error("Order not found");
+  if (orders.some((o) => o.reference !== reference && (o.transactionId === transactionId || o.transactionIds?.includes(transactionId)))) throw new Error("Transaction already used");
+  if (order.status === "paid" && order.transactionId !== transactionId && order.kind !== "subscription") throw new Error("Order already paid");
+  order.status = "paid";
+  order.transactionId ||= transactionId;
+  order.transactionIds = [...new Set([...(order.transactionIds || []), transactionId])];
+  writeJSON("orders.json", orders);
+  return order;
 }
 
 // ===== APPS =====
@@ -141,7 +194,7 @@ export interface AdminSettings {
 
 const DEFAULT_SETTINGS: AdminSettings = {
   email: "admin@resultscaleai.com",
-  passwordHash: "admin123", // plain text for simplicity; in production use bcrypt
+  passwordHash: hashPassword(process.env.ADMIN_PASSWORD || crypto.randomUUID()),
   google: {
     searchConsoleVerification: "",
     recaptchaSiteKey: "",
@@ -151,7 +204,8 @@ const DEFAULT_SETTINGS: AdminSettings = {
   },
 };
 export function getAdminSettings(): AdminSettings {
-  return readJSON<AdminSettings>("admin.json", DEFAULT_SETTINGS);
+  const settings = readJSON<AdminSettings>("admin.json", DEFAULT_SETTINGS);
+  return { ...DEFAULT_SETTINGS, ...settings, google: { ...DEFAULT_SETTINGS.google, ...settings.google } };
 }
 
 export function updateAdminPassword(newPassword: string): void {

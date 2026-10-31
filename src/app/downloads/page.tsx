@@ -8,17 +8,20 @@ import AdSlot from "@/components/AdSlot";
 export default function DownloadsPage() {
   const [apps, setApps] = useState<App[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetch("/api/apps")
-      .then((res) => res.json())
+      .then((res) => { if (!res.ok) throw new Error("Content could not be loaded. Please refresh to try again."); return res.json(); })
       .then((data) => setApps(data))
-      .catch((err) => console.error("Failed to load apps", err))
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
 
   return (
     <div className="min-h-screen pt-24 pb-20">
+      {error && <p role="alert" className="p-4 text-center text-red-600">{error}</p>}
+      {loading && <p role="status" className="p-4 text-center">Loading...</p>}
       {/* Header */}
       <section className="py-16 bg-gray-50 dark:bg-[#0a0a0f] border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

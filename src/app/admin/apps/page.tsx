@@ -19,7 +19,7 @@ const emptyApp = {
   requirements: [],
   changelog: [],
   faq: [],
-  safety: { virusScanned: true, secureDownload: true, sha256Hash: "" },
+  safety: { virusScanned: false, secureDownload: false, sha256Hash: "" },
   rating: 0,
   developer: "ResultScale AI",
   apkUrl: "",
@@ -65,7 +65,6 @@ export default function AdminAppsPage() {
 
   useEffect(() => {
     fetchApps();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const resetForm = () => {
@@ -130,7 +129,7 @@ export default function AdminAppsPage() {
         const err = await res.json();
         setMessage(err.error || "Failed to save app");
       }
-    } catch (err) {
+    } catch {
       setMessage("Failed to save app");
     } finally {
       setSaving(false);
@@ -149,14 +148,13 @@ export default function AdminAppsPage() {
   // ─── Chunked upload with resume ───────────────────────────────────────────
   const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
   const MAX_RETRIES = 3;
-  const UPLOAD_URL = "https://uploads.resultscaleai.com/api/upload/apk";
+  const UPLOAD_URL = "/api/upload/apk";
 
   /** Upload a single chunk with retry logic */
   const uploadChunk = async (
     file: File,
     uploadId: string,
     chunkIndex: number,
-    totalChunks: number
   ): Promise<boolean> => {
     const start = chunkIndex * CHUNK_SIZE;
     const end = Math.min(start + CHUNK_SIZE, file.size);
@@ -253,7 +251,7 @@ export default function AdminAppsPage() {
         // Skip already-received chunks (resume support)
         if (receivedSet.has(i)) continue;
 
-        const ok = await uploadChunk(file, uploadId, i, totalChunks);
+        const ok = await uploadChunk(file, uploadId, i);
         if (!ok) {
           // Session may have expired; try to re-init
           throw new Error(`Failed to upload chunk ${i + 1}/${totalChunks} after ${MAX_RETRIES} retries`);
@@ -282,7 +280,7 @@ export default function AdminAppsPage() {
       }
 
       const data = await completeRes.json();
-      setForm({ ...form, apkUrl: data.url });
+      setForm({ ...form, apkUrl: data.url, safety: { ...form.safety, sha256Hash: data.sha256, virusScanned: false, secureDownload: window.location.protocol === "https:" } });
       setMessage(`APK uploaded: ${data.filename}`);
 
       // Cleanup session storage
@@ -421,6 +419,15 @@ export default function AdminAppsPage() {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium mb-2">Screenshot URLs (one per line)</label>
+                <textarea value={form.screenshots.join("\n")} onChange={(e) => setForm({ ...form, screenshots: e.target.value.split("\n").filter(Boolean) })} className="w-full p-3 border rounded-xl bg-transparent" rows={3} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Requirements (one per line)</label>
+                <textarea value={form.requirements.join("\n")} onChange={(e) => setForm({ ...form, requirements: e.target.value.split("\n").filter(Boolean) })} className="w-full p-3 border rounded-xl bg-transparent" rows={3} />
+              </div>
+              {(["changelog", "faq"] as const).map((key) => <details key={key}><summary className="cursor-pointer capitalize">{key} (JSON)</summary><textarea key={editingId || "new"} defaultValue={JSON.stringify(form[key], null, 2)} rows={6} className="w-full p-3 border rounded-xl bg-transparent font-mono" onBlur={(e) => { try { const value = JSON.parse(e.target.value); if (!Array.isArray(value)) throw new Error(); setForm((form) => ({ ...form, [key]: value })); } catch { setMessage(`Enter a valid JSON array for ${key}.`); } }} /></details>)}
               {/* APK Upload */}
               <div>
                 <label className="block text-sm font-medium mb-2">APK File</label>

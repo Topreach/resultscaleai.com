@@ -1,9 +1,11 @@
+import { validPost } from "@/lib/validation";
+import { getSession } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
-import { getBlogPost, updateBlogPost, deleteBlogPost } from "@/lib/store/db";
+import { getBlogPost, getBlogPosts, updateBlogPost, deleteBlogPost } from "@/lib/store/db";
 
 // GET /api/blog/[id] - Get a single blog post
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -19,15 +21,20 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!getSession(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   try {
     const body = await request.json();
-    const updated = updateBlogPost(id, body);
+    const existing = getBlogPosts().find((post) => post.id === id);
+    if (!existing) return NextResponse.json({ error: "Post not found" }, { status: 404 });
+    if (!validPost({ ...existing, ...body, id })) return NextResponse.json({ error: "Invalid post data" }, { status: 400 });
+    if (getBlogPosts().some((p) => p.slug === body.slug && p.id !== id)) return NextResponse.json({ error: "This slug is already in use" }, { status: 409 });
+    const updated = updateBlogPost(id, { ...body, id });
     if (!updated) {
       return NextResponse.json({ error: "Blog post not found" }, { status: 404 });
     }
     return NextResponse.json(updated);
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to update blog post" },
       { status: 400 }
@@ -37,9 +44,10 @@ export async function PUT(
 
 // DELETE /api/blog/[id] - Delete a blog post
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!getSession(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   const deleted = deleteBlogPost(id);
   if (!deleted) {

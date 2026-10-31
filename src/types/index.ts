@@ -105,6 +105,12 @@ export interface ContactRequest {
   message: string;
   date: string;
   status: "new" | "read" | "replied";
+  notification?: {
+    status: "pending" | "accepted" | "failed" | "not_configured";
+    attemptedAt?: string;
+    messageId?: string;
+    errorCode?: string;
+  };
 }
 
 export interface User {
@@ -145,6 +151,7 @@ export interface MonetizationConfig {
 export interface AdSenseConfig {
   enabled: boolean;
   publisherId: string;
+  unitIds?: Partial<Record<"homepage" | "blogSidebar" | "blogInline" | "appDetail" | "downloads", string>>;
   slots: {
     homepage: boolean;
     blogSidebar: boolean;

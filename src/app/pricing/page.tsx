@@ -1,4 +1,5 @@
 "use client";
+import { subscriptionAmount } from "@/lib/pricing";
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -96,7 +97,7 @@ export default function PricingPage() {
                     <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">{tier.description}</p>
                     <div className="flex items-baseline justify-center gap-1">
                       <span className="text-4xl font-bold">
-                        ${interval === "year" ? (tier.price * 10).toFixed(0) : tier.price}
+                        ${subscriptionAmount(tier, interval).toFixed(2)}
                       </span>
                       <span className="text-gray-400 text-sm">
                         /{interval === "month" ? "month" : "year"}
@@ -104,7 +105,7 @@ export default function PricingPage() {
                     </div>
                     {interval === "year" && tier.price > 0 && (
                       <p className="text-xs text-green-500 mt-1">
-                        ${tier.price}/mo billed annually
+                        ${(subscriptionAmount(tier, "year") / 12).toFixed(2)}/mo billed annually
                       </p>
                     )}
                   </div>
@@ -119,7 +120,7 @@ export default function PricingPage() {
                     ))}
                   </ul>
                   <Link
-                    href="/contact"
+                    href={tier.price > 0 ? `/checkout?kind=subscription&product=${encodeURIComponent(tier.id)}&interval=${interval}` : "/contact"}
                     className={`block text-center py-3 rounded-xl font-medium transition-all ${
                       tier.highlighted
                         ? "bg-linear-to-r from-indigo-600 to-cyan-500 text-white hover:from-indigo-700 hover:to-cyan-600"
@@ -230,7 +231,7 @@ export default function PricingPage() {
                     ))}
                   </ul>
                   <Link
-                    href="/contact"
+                    href={pkg.price > 0 ? `/checkout?kind=service&product=${encodeURIComponent(pkg.id)}` : "/contact"}
                     className="block text-center py-3 rounded-xl font-medium bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
                   >
                     {pkg.cta}

@@ -126,7 +126,7 @@ export default function AdminBlogPage() {
         const err = await res.json();
         setMessage(err.error || "Failed to save post");
       }
-    } catch (err) {
+    } catch {
       setMessage("Failed to save post");
     } finally {
       setSaving(false);
@@ -250,14 +250,14 @@ export default function AdminBlogPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Content (HTML)</label>
+                <label className="block text-sm font-medium mb-1">Content (plain text)</label>
                 <textarea
                   required
                   rows={10}
                   value={form.content}
                   onChange={(e) => setForm({ ...form, content: e.target.value })}
                   className="w-full px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none font-mono text-sm"
-                  placeholder="<p>Write your blog content in HTML...</p>"
+                  placeholder="Write your article content..."
                 />
               </div>
 

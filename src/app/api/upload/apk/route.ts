@@ -1,6 +1,9 @@
+import { pipeline } from "node:stream/promises";
+import { createHash } from "node:crypto";
+import { getSession } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
-import { mkdir, unlink, readdir, readFile, writeFile, rename } from "fs/promises";
-import { createWriteStream, existsSync } from "fs";
+import { mkdir, unlink, readdir, readFile, writeFile, rmdir, stat } from "fs/promises";
+import { createWriteStream } from "fs";
 import path from "path";
 
 export const maxDuration = 300;
@@ -48,28 +51,7 @@ function validateApkMagicBytes(buffer: Uint8Array): boolean {
   );
 }
 
-function isAuthenticated(request: NextRequest): boolean {
-  const cookieToken = request.cookies.get("admin_token")?.value;
-  if (cookieToken) {
-    try {
-      const decoded = JSON.parse(Buffer.from(cookieToken, "base64").toString("utf-8"));
-      if (decoded.exp > Date.now()) return true;
-    } catch {
-      // fall through
-    }
-  }
-  const authHeader = request.headers.get("Authorization") || request.headers.get("x-auth-token");
-  if (authHeader) {
-    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-    try {
-      const decoded = JSON.parse(Buffer.from(token, "base64").toString("utf-8"));
-      return decoded.exp > Date.now();
-    } catch {
-      return false;
-    }
-  }
-  return false;
-}
+const isAuthenticated = getSession;
 
 // CORS headers
 const corsHeaders = {
@@ -92,7 +74,7 @@ async function cleanupStaleSessions(): Promise<void> {
       try {
         const files = await readdir(session.tempDir);
         await Promise.all(files.map((f) => unlink(path.join(session.tempDir, f)).catch(() => {})));
-        await unlink(session.tempDir).catch(() => {});
+        await rmdir(session.tempDir).catch(() => {});
       } catch {}
       uploadSessions.delete(id);
     }
@@ -106,7 +88,7 @@ async function handleInit(request: NextRequest): Promise<NextResponse> {
     const body = await request.json();
     const { filename, totalSize, totalChunks } = body;
 
-    if (!filename || !totalSize || !totalChunks) {
+    if (typeof filename !== "string" || filename.length > 200 || !Number.isSafeInteger(totalSize) || totalSize < 4 || !Number.isSafeInteger(totalChunks) || totalChunks !== Math.ceil(totalSize / CHUNK_SIZE)) {
       return NextResponse.json({ error: "Missing required fields: filename, totalSize, totalChunks" }, { status: 400, headers: corsHeaders });
     }
 
@@ -119,6 +101,7 @@ async function handleInit(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "File too large. Maximum size is 500MB" }, { status: 400, headers: corsHeaders });
     }
 
+    if (!checkRateLimit(getSession(request)!.email)) return NextResponse.json({ error: "Too many uploads. Try again in a minute." }, { status: 429, headers: corsHeaders });
     const uploadId = crypto.randomUUID();
     const tempDir = path.join(process.cwd(), ".upload-cache", uploadId);
     await mkdir(tempDir, { recursive: true });
@@ -169,14 +152,18 @@ async function handleChunk(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Missing required fields: uploadId, chunkIndex, chunk" }, { status: 400, headers: corsHeaders });
     }
 
-    const chunkIndex = parseInt(chunkIndexStr, 10);
-    if (isNaN(chunkIndex) || chunkIndex < 0) {
+    const chunkIndex = Number(chunkIndexStr);
+    if (!Number.isSafeInteger(chunkIndex) || chunkIndex < 0) {
       return NextResponse.json({ error: "Invalid chunkIndex" }, { status: 400, headers: corsHeaders });
     }
 
     const session = uploadSessions.get(uploadId);
     if (!session) {
       return NextResponse.json({ error: "Upload session not found or expired" }, { status: 404, headers: corsHeaders });
+    }
+
+    if (chunkIndex >= session.totalChunks || !(chunkFile instanceof File) || chunkFile.size !== Math.min(CHUNK_SIZE, session.totalSize - chunkIndex * CHUNK_SIZE)) {
+      return NextResponse.json({ error: "Unexpected chunk index or size" }, { status: 400, headers: corsHeaders });
     }
 
     // Validate APK magic bytes on first chunk
@@ -259,6 +246,10 @@ async function handleComplete(request: NextRequest): Promise<NextResponse> {
       }, { status: 400, headers: corsHeaders });
     }
 
+    let actualSize = 0;
+    for (let i = 0; i < session.totalChunks; i++) actualSize += (await stat(path.join(session.tempDir, `${i}.part`))).size;
+    if (actualSize !== session.totalSize) return NextResponse.json({ error: "Upload size mismatch" }, { status: 400, headers: corsHeaders });
+
     // Assemble chunks in order
     const apksDir = path.join(process.cwd(), "public", "apks");
     await mkdir(apksDir, { recursive: true });
@@ -268,40 +259,35 @@ async function handleComplete(request: NextRequest): Promise<NextResponse> {
     const finalFilename = `${timestamp}-${safeName}`;
     const finalPath = path.join(apksDir, finalFilename);
 
-    // Concatenate all chunks
-    const writeStream = createWriteStream(finalPath);
-    try {
-      for (let i = 0; i < session.totalChunks; i++) {
-        const chunkPath = path.join(session.tempDir, `${i}.part`);
-        const chunkData = await readFile(chunkPath);
-        writeStream.write(chunkData);
+    const sha256 = createHash("sha256");
+    async function* chunks() {
+      for (let i = 0; i < session!.totalChunks; i++) {
+        const data = await readFile(path.join(session!.tempDir, `${i}.part`));
+        sha256.update(data);
+        yield data;
       }
-    } finally {
-      writeStream.end();
     }
-
-    await new Promise<void>((resolve, reject) => {
-      writeStream.on("finish", resolve);
-      writeStream.on("error", reject);
-    });
+    try { await pipeline(chunks(), createWriteStream(finalPath, { flags: "wx" })); }
+    catch (error) { await unlink(finalPath).catch(() => {}); throw error; }
 
     // Cleanup temp files
     try {
       const files = await readdir(session.tempDir);
       await Promise.all(files.map((f) => unlink(path.join(session.tempDir, f)).catch(() => {})));
-      await unlink(session.tempDir).catch(() => {});
+      await rmdir(session.tempDir).catch(() => {});
     } catch {}
 
     uploadSessions.delete(uploadId);
 
     // Return full URL pointing to the uploads server where the file physically lives
-    const url = `https://uploads.resultscaleai.com/apks/${finalFilename}`;
+    const url = `/apks/${finalFilename}`;
 
     return NextResponse.json({
       url,
       filename: session.filename,
       size: session.totalSize,
       complete: true,
+      sha256: sha256.digest("hex"),
     }, { headers: corsHeaders });
   } catch (error) {
     console.error("Complete error:", error);

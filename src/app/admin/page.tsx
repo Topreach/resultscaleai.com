@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 const adminModules = [
   {
@@ -48,6 +49,9 @@ const adminModules = [
 ];
 
 export default function AdminDashboard() {
+  const [metrics, setMetrics] = useState<{totalApps:number;totalDownloads:number;activeUsers:number;contacts:number;newContacts:number}|null>(null);
+  const [error,setError] = useState("");
+  useEffect(()=>{fetch("/api/admin/analytics").then(async r=>{if(!r.ok)throw new Error("Could not load dashboard metrics");setMetrics(await r.json());}).catch(e=>setError(e.message));},[]);
   return (
     <div className="min-h-screen pt-24 pb-20">
       {/* Header */}
@@ -60,21 +64,22 @@ export default function AdminDashboard() {
             </div>
             <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
               <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-              <span className="text-sm text-gray-600 dark:text-gray-400">System Online</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">Admin workspace</span>
             </div>
           </div>
         </div>
       </section>
 
+      {error && <p role="alert" className="p-4 text-red-600">{error}</p>}
       {/* Stats Overview */}
       <section className="py-8 border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: "Total Apps", value: "6", change: "+2 this month" },
-              { label: "Total Downloads", value: "162,580", change: "+12.5% vs last month" },
-              { label: "Active Users", value: "1,234", change: "+8.3% vs last month" },
-              { label: "Contact Requests", value: "28", change: "5 new today" },
+              { label: "Total Apps", value: metrics?.totalApps ?? "?", change: "Current catalogue" },
+              { label: "Total Downloads", value: metrics?.totalDownloads.toLocaleString() ?? "?", change: "Recorded download requests" },
+              { label: "Active Users", value: metrics?.activeUsers ?? "?", change: "Enabled accounts" },
+              { label: "Contact Requests", value: metrics?.contacts ?? "?", change: `${metrics?.newContacts ?? 0} unread` },
             ].map((stat) => (
               <div key={stat.label} className="p-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
                 <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">{stat.label}</div>

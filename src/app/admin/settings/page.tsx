@@ -56,8 +56,8 @@ export default function AdminSettingsPage() {
       return;
     }
 
-    if (newPassword.length < 6) {
-      setMessage({ type: "error", text: "New password must be at least 6 characters" });
+    if (newPassword.length < 8) {
+      setMessage({ type: "error", text: "New password must be at least 8 characters" });
       return;
     }
 
@@ -185,9 +185,9 @@ export default function AdminSettingsPage() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
-                  minLength={6}
+                  minLength={8}
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
-                  placeholder="Enter new password (min 6 characters)"
+                  placeholder="Enter new password (min 8 characters)"
                 />
               </div>
 
@@ -200,7 +200,7 @@ export default function AdminSettingsPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  minLength={6}
+                  minLength={8}
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                   placeholder="Confirm new password"
                 />

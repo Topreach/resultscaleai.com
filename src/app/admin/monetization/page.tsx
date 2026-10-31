@@ -171,6 +171,7 @@ export default function AdminMonetizationPage() {
                             className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                           />
                           <span className="text-sm capitalize">{key.replace(/([A-Z])/g, " $1").trim()}</span>
+                          <input aria-label={`${key} AdSense unit ID`} placeholder="Numeric ad unit ID" value={config.adsense.unitIds?.[key as keyof typeof config.adsense.slots] || ""} onChange={(e) => setConfig({ ...config, adsense: { ...config.adsense, unitIds: { ...config.adsense.unitIds, [key]: e.target.value } } })} className="border rounded-lg px-3 py-2 bg-transparent min-w-0" />
                         </label>
                       ))}
                     </div>

@@ -1,8 +1,11 @@
+import { hashPassword, verifyPassword } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminSettings, updateAdminPassword, updateGoogleConfig } from "@/lib/store/db";
+import { getAdminSettings, updateAdminPassword, updateGoogleConfig, getSessions, saveSessions } from "@/lib/store/db";
 
 // GET /api/admin/settings - Get admin settings (excluding password)
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (!getSession(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const settings = getAdminSettings();
     return NextResponse.json({
@@ -19,6 +22,7 @@ export async function GET() {
 
 // PUT /api/admin/settings - Update admin password or Google config
 export async function PUT(request: NextRequest) {
+  if (!getSession(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await request.json();
 
@@ -26,9 +30,9 @@ export async function PUT(request: NextRequest) {
     if (body.currentPassword && body.newPassword) {
       const { currentPassword, newPassword } = body;
 
-      if (newPassword.length < 6) {
+      if (typeof newPassword !== "string" || newPassword.length < 8 || newPassword.length > 1024) {
         return NextResponse.json(
-          { error: "New password must be at least 6 characters" },
+          { error: "New password must be between 8 and 1024 characters" },
           { status: 400 }
         );
       }
@@ -36,20 +40,30 @@ export async function PUT(request: NextRequest) {
       const settings = getAdminSettings();
 
       // Verify current password
-      if (currentPassword !== settings.passwordHash) {
+      if (!verifyPassword(currentPassword, settings.passwordHash)) {
         return NextResponse.json(
           { error: "Current password is incorrect" },
           { status: 401 }
         );
       }
 
-      updateAdminPassword(newPassword);
+      updateAdminPassword(hashPassword(newPassword));
+      const currentSession = getSession(request);
+      saveSessions(getSessions().filter((session) => session.hash === currentSession?.hash));
       return NextResponse.json({ success: true, message: "Password updated successfully" });
     }
 
     // Update Google config
     if (body.google) {
-      updateGoogleConfig(body.google);
+      const google = body.google;
+      if (!!google.recaptchaSiteKey !== !!google.recaptchaSecretKey) return NextResponse.json({ error: "Provide both reCAPTCHA v2 keys or clear both." }, { status: 400 });
+      const keys = ["searchConsoleVerification", "recaptchaSiteKey", "recaptchaSecretKey", "analyticsMeasurementId", "tagManagerId"];
+      if (keys.some((key) => typeof google[key] !== "string" || google[key].length > 500) ||
+        (google.analyticsMeasurementId && !/^G-[A-Z0-9]+$/.test(google.analyticsMeasurementId)) ||
+        (google.tagManagerId && !/^GTM-[A-Z0-9]+$/.test(google.tagManagerId))) {
+        return NextResponse.json({ error: "Enter valid Google settings and measurement IDs" }, { status: 400 });
+      }
+      updateGoogleConfig(Object.fromEntries(keys.map((key) => [key, google[key]])) as unknown as import("@/types").GoogleConfig);
       return NextResponse.json({ success: true, message: "Google configuration saved" });
     }
 

@@ -47,3 +47,8 @@ next-env.d.ts
 
 # uploaded APK files
 /public/apks/
+
+# Local agent checkouts, upload cache and deployment archives
+/.kilo/
+/.upload-cache/
+/*.tar.gz

@@ -1,73 +1,8 @@
-"use client";
-
-export default function AdminAnalyticsPage() {
-  return (
-    <div className="min-h-screen pt-24 pb-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold mb-8">Download Analytics</h1>
-
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800">
-            <h3 className="font-semibold mb-4">Downloads by App</h3>
-            <div className="space-y-4">
-              {[
-                { name: "FinWise", downloads: 42100, color: "bg-indigo-500" },
-                { name: "AIDesigner", downloads: 32100, color: "bg-cyan-500" },
-                { name: "SecureVault", downloads: 28450, color: "bg-green-500" },
-                { name: "FitPulse", downloads: 25600, color: "bg-orange-500" },
-                { name: "LingoAI", downloads: 18900, color: "bg-purple-500" },
-                { name: "TaskFlow Pro", downloads: 15230, color: "bg-pink-500" },
-              ].map((item) => {
-                const maxDownloads = 42100;
-                const width = (item.downloads / maxDownloads) * 100;
-                return (
-                  <div key={item.name}>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>{item.name}</span>
-                      <span className="text-gray-500">{item.downloads.toLocaleString()}</span>
-                    </div>
-                    <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full ${item.color}`}
-                        style={{ width: `${width}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800">
-            <h3 className="font-semibold mb-4">Monthly Downloads</h3>
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">📊</div>
-              <p className="text-gray-500 dark:text-gray-400">Chart integration coming soon</p>
-              <p className="text-sm text-gray-400 mt-2">Connect your analytics provider</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800">
-          <h3 className="font-semibold mb-4">Recent Activity</h3>
-          <div className="space-y-4">
-            {[
-              { action: "New download", app: "FinWise", user: "Anonymous", time: "2 minutes ago" },
-              { action: "New download", app: "AIDesigner", user: "Anonymous", time: "15 minutes ago" },
-              { action: "New download", app: "SecureVault", user: "john@example.com", time: "1 hour ago" },
-              { action: "New download", app: "TaskFlow Pro", user: "Anonymous", time: "2 hours ago" },
-            ].map((activity, i) => (
-              <div key={i} className="flex items-center gap-4 text-sm">
-                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                <span className="text-gray-600 dark:text-gray-400">
-                  <strong>{activity.action}</strong> - {activity.app}
-                </span>
-                <span className="text-gray-400 ml-auto">{activity.time}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+﻿"use client";
+import { useEffect, useState } from "react";
+type Analytics = {totalDownloads:number;activeUsers:number;apps:{id:string;name:string;downloads:number}[];orders:{reference:string;name:string;amount:number;currency:string;status:string;createdAt:string}[]};
+export default function AdminAnalyticsPage(){
+ const [data,setData]=useState<Analytics|null>(null),[error,setError]=useState("");
+ useEffect(()=>{fetch("/api/admin/analytics").then(async r=>{if(!r.ok)throw new Error("Could not load analytics");setData(await r.json());}).catch(e=>setError(e.message));},[]);
+ return <div className="p-6 lg:p-10"><h1 className="text-3xl font-bold mb-6">Analytics and payments</h1>{error&&<p role="alert" className="text-red-600">{error}</p>}{data?<><p className="mb-6">{data.totalDownloads.toLocaleString()} recorded download requests · {data.activeUsers} enabled accounts</p><h2 className="text-xl font-semibold mb-4">Downloads by app</h2>{data.apps.length?data.apps.map(app=><div key={app.id} className="border-b py-3 flex justify-between"><span>{app.name}</span><span>{app.downloads.toLocaleString()}</span></div>):<p>No apps yet.</p>}<p className="text-sm text-gray-500 my-4">Totals count download requests, not completed installations. Historical monthly data is not available for earlier downloads.</p><h2 className="text-xl font-semibold mt-8 mb-4">Payment orders</h2>{data.orders.length?<div className="overflow-x-auto"><table className="w-full text-left"><thead><tr>{['Product','Amount','Status','Date','Reference'].map(s=><th key={s} className="p-3">{s}</th>)}</tr></thead><tbody>{data.orders.map(o=><tr key={o.reference} className="border-t"><td className="p-3">{o.name}</td><td className="p-3">{o.currency} {o.amount.toFixed(2)}</td><td className="p-3">{o.status}</td><td className="p-3">{o.createdAt.slice(0,10)}</td><td className="p-3 break-all">{o.reference}</td></tr>)}</tbody></table></div>:<p>No orders yet.</p>}</>:!error&&<p role="status">Loading analytics…</p>}</div>;
 }

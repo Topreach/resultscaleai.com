@@ -113,7 +113,7 @@ export default function AdminLoginPage() {
           </button>
 
           <div className="text-center text-xs text-gray-400">
-            Default: admin@resultscaleai.com / admin123
+            Use your administrator credentials.
           </div>
         </form>
       </div>

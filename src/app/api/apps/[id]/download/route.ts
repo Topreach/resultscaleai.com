@@ -1,9 +1,10 @@
+import { accountUser } from "@/lib/account-auth";
 import { NextRequest, NextResponse } from "next/server";
-import { getApp, updateApp } from "@/lib/store/db";
+import { getApp, updateApp, getUsers, saveUsers } from "@/lib/store/db";
 
 // POST /api/apps/[id]/download - Increment download count and return file URL
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -20,6 +21,13 @@ export async function POST(
   // P1: Increment download count
   const currentDownloads = app.downloads || 0;
   updateApp(id, { downloads: currentDownloads + 1 });
+
+  const user = accountUser(request);
+  if (user) {
+    const users = getUsers();
+    const profile = users.find((u) => u.id === user.id)!;
+    if (!profile.downloads.includes(id)) { profile.downloads.push(id); saveUsers(users); }
+  }
 
   // Return the full download URL (file is hosted on uploads.resultscaleai.com)
   return NextResponse.json({

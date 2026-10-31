@@ -1,72 +1,11 @@
-"use client";
-
-export default function AdminSecurityReportsPage() {
-  const reports = [
-    { id: "1", client: "TechVentures Inc.", type: "Security Audit", date: "2025-03-10", status: "Completed", findings: 12, critical: 2 },
-    { id: "2", client: "DataFlow Systems", type: "Penetration Test", date: "2025-03-05", status: "In Progress", findings: 8, critical: 1 },
-    { id: "3", client: "StartupLab", type: "Code Review", date: "2025-02-28", status: "Completed", findings: 5, critical: 0 },
-  ];
-
-  return (
-    <div className="min-h-screen pt-24 pb-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Security Reports</h1>
-            <p className="text-gray-600 dark:text-gray-400">Review security assessment findings</p>
-          </div>
-          <button className="px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-cyan-500 rounded-lg hover:from-indigo-700 hover:to-cyan-600 transition-all duration-200">
-            + New Report
-          </button>
-        </div>
-
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-800">
-                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-500">Client</th>
-                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-500">Type</th>
-                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-500">Date</th>
-                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-500">Findings</th>
-                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-500">Critical</th>
-                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-500">Status</th>
-                <th className="text-right px-6 py-4 text-sm font-semibold text-gray-500">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {reports.map((report) => (
-                <tr key={report.id} className="border-b border-gray-100 dark:border-gray-800 last:border-0">
-                  <td className="px-6 py-4 font-medium">{report.client}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{report.type}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{report.date}</td>
-                  <td className="px-6 py-4 text-sm">{report.findings}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
-                      report.critical > 0
-                        ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
-                        : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
-                    }`}>
-                      {report.critical}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
-                      report.status === "Completed"
-                        ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
-                        : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400"
-                    }`}>
-                      {report.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">View</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
+﻿"use client";
+import {useEffect,useState} from "react";
+type Report={id:string;client:string;type:string;date:string;status:string;findings:number;critical:number;summary:string};
+const empty={client:"",type:"Security Audit",status:"In Progress",findings:0,critical:0,summary:""};
+export default function AdminReportsPage(){
+ const [reports,setReports]=useState<Report[]>([]),[form,setForm]=useState(empty),[show,setShow]=useState(false),[error,setError]=useState(""),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
+ useEffect(()=>{fetch("/api/admin/reports").then(async r=>{if(!r.ok)throw new Error("Could not load reports");setReports(await r.json());}).catch(e=>setError(e.message)).finally(()=>setLoading(false));},[]);
+ async function save(e:React.FormEvent){e.preventDefault();setBusy(true);setError("");try{const r=await fetch("/api/admin/reports",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(form)});const data=await r.json();if(!r.ok)throw new Error(data.error);setReports(reports=>[...reports,data]);setShow(false);setForm(empty);}catch(e){setError(e instanceof Error?e.message:"Could not save report");}finally{setBusy(false);}}
+ async function remove(id:string){if(!confirm("Delete this report permanently?"))return;setError("");try{const r=await fetch(`/api/admin/reports?id=${encodeURIComponent(id)}`,{method:"DELETE"});if(!r.ok)throw new Error("Could not delete report");setReports(reports=>reports.filter(r=>r.id!==id));}catch(e){setError(e instanceof Error?e.message:"Delete failed");}}
+ return <div className="p-6 lg:p-10"><h1 className="text-3xl font-bold mb-4">Security reports</h1><p className="text-gray-500 mb-6">Record findings from your completed or ongoing assessments.</p><button onClick={()=>setShow(!show)} className="bg-indigo-600 text-white rounded-lg px-4 py-2 mb-6">{show?'Close form':'New report'}</button>{error&&<p role="alert" className="text-red-600 mb-4">{error}</p>}{show&&<form onSubmit={save} className="space-y-4 border rounded-xl p-6 mb-8">{(['client','type'] as const).map(key=><label key={key} className="block capitalize">{key}<input required maxLength={150} value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})} className="block w-full border rounded-lg p-3 bg-transparent mt-2"/></label>)}<label className="block">Status<select value={form.status} onChange={e=>setForm({...form,status:e.target.value})} className="block w-full border rounded-lg p-3 bg-transparent mt-2"><option>In Progress</option><option>Completed</option></select></label>{(['findings','critical'] as const).map(key=><label key={key} className="block capitalize">{key}<input type="number" required min={0} step={1} value={form[key]} onChange={e=>setForm({...form,[key]:Number(e.target.value)})} className="block w-full border rounded-lg p-3 bg-transparent mt-2"/></label>)}<label className="block">Summary<textarea maxLength={20000} rows={6} value={form.summary} onChange={e=>setForm({...form,summary:e.target.value})} className="block w-full border rounded-lg p-3 bg-transparent mt-2"/></label><button disabled={busy} className="bg-indigo-600 text-white px-4 py-2 rounded-lg">{busy?'Saving…':'Save report'}</button></form>}{loading?<p role="status">Loading reports…</p>:reports.length?reports.map(report=><details key={report.id} className="border rounded-xl p-5 mb-4"><summary className="cursor-pointer font-semibold">{report.client} · {report.type} · {report.status}</summary><p className="mt-4">{report.date} · {report.findings} findings · {report.critical} critical</p><p className="whitespace-pre-wrap my-4">{report.summary||'No summary supplied.'}</p><button onClick={()=>remove(report.id)} className="text-red-600">Delete report</button></details>):<p>No reports yet.</p>}</div>;
 }

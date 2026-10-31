@@ -7,7 +7,6 @@ export default function AdminContactsPage() {
   const [contacts, setContacts] = useState<ContactRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedContact, setSelectedContact] = useState<ContactRequest | null>(null);
-  const [message, setMessage] = useState("");
 
   useEffect(() => {
     const loadContacts = async () => {
@@ -131,6 +130,7 @@ export default function AdminContactsPage() {
                     {contact.service}
                   </span>
                 </div>
+                <p className="text-xs text-gray-500 mb-2">Email notification: {contact.notification?.status === "accepted" ? "Accepted by mail server (inbox not confirmed)" : contact.notification?.status === "failed" ? "Failed - check email configuration" : contact.notification?.status === "not_configured" ? "Email not configured" : contact.notification?.status === "pending" ? "Pending" : "Not tracked for this older enquiry"}</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
                   {contact.message}
                 </p>

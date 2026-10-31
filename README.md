@@ -1,36 +1,18 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ResultScale AI
 
-## Getting Started
+Next.js application for the public website, app catalogue, blog, contact inbox, accounts and administration.
 
-First, run the development server:
+## Local setup
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. Install dependencies with `npm ci`.
+2. Copy `.env.example` to `.env.local` and set an initial `ADMIN_PASSWORD` before the first run. Initial administrator email is `admin@resultscaleai.com`. Existing `data/admin.json` credentials are preserved; change them through Admin -> Settings.
+3. Run `npm run dev`, then open http://localhost:3000.
+4. Check changes with `npm test`, `npm run lint`, and `npm run build`. Run a production build with `npm start`.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Data and deployment
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Saved JSON records live in `data/`; uploads live in `public/apks/` and are served through `/apks/[filename]`. Both need persistent writable storage and backups. Never commit credentials, customer data, session files or uploaded APKs. Current storage is intended for a single application instance; use a database/shared object storage before scaling to multiple instances.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The application uses Google fonts downloaded during build. SMTP, reCAPTCHA, AdSense and Flutterwave require account-specific configuration. New uploads use the same application origin; older external APK URLs can still be downloaded.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See [implementation inventory](APPLICATION_ANALYSIS.md) for the original audit and [verification status and setup](VERIFICATION_STATUS.md) for the current work, payment configuration and remaining release checks. Passing the automated checks does not establish provider integration or production readiness.

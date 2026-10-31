@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+import Captcha from "@/components/Captcha";
 
 const services = [
   "Mobile App Development",
@@ -13,6 +15,10 @@ const services = [
 ];
 
 export default function ContactPage() {
+  const [siteKey, setSiteKey] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaReady, setCaptchaReady] = useState(false);
+  const [captchaVersion, setCaptchaVersion] = useState(0);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -22,6 +28,7 @@ export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  useEffect(() => { fetch("/api/public/settings").then(async (response) => { if (!response.ok) throw new Error(); const data = await response.json(); setSiteKey(data.recaptchaSiteKey); setCaptchaReady(true); }).catch(() => setError("Could not load form settings. Please refresh to try again.")); }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +39,7 @@ export default function ContactPage() {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, captchaToken }),
       });
 
       if (res.ok) {
@@ -45,6 +52,8 @@ export default function ContactPage() {
       setError("Connection error. Please try again.");
     } finally {
       setSubmitting(false);
+      setCaptchaToken("");
+      setCaptchaVersion((version) => version + 1);
     }
   };
 
@@ -143,9 +152,10 @@ export default function ContactPage() {
                     />
                   </div>
 
+                  {siteKey && <Captcha key={captchaVersion} siteKey={siteKey} onToken={setCaptchaToken} />}
                   <button
                     type="submit"
-                    disabled={submitting}
+                    disabled={submitting || !captchaReady || (!!siteKey && !captchaToken)}
                     className="w-full px-6 py-3.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-cyan-500 rounded-xl hover:from-indigo-700 hover:to-cyan-600 transition-all duration-200 shadow-lg shadow-indigo-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {submitting ? "Sending..." : "Send Message"}

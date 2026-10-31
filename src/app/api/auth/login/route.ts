@@ -1,12 +1,16 @@
+import { sameOrigin, allowAttempt } from "@/lib/request-security";
+import { createSession, verifyPassword, hashPassword } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminSettings } from "@/lib/store/db";
+import { getAdminSettings, updateAdminPassword } from "@/lib/store/db";
 
-const ADMIN_EMAIL = "admin@resultscaleai.com";
+
 
 // POST /api/auth/login - Admin login
 export async function POST(request: NextRequest) {
+  if (!sameOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
   try {
     const body = await request.json();
+    if (!allowAttempt("login:" + String(body.email).toLowerCase())) return NextResponse.json({ error: "Too many attempts. Please try again in a minute." }, { status: 429 });
     const { email, password } = body;
 
     if (!email || !password) {
@@ -18,27 +22,21 @@ export async function POST(request: NextRequest) {
 
     const settings = getAdminSettings();
 
-    if (email !== ADMIN_EMAIL || password !== settings.passwordHash) {
+    if (email !== settings.email || !verifyPassword(password, settings.passwordHash)) {
       return NextResponse.json(
         { error: "Invalid email or password" },
         { status: 401 }
       );
     }
 
-    // Create a simple token (in production, use JWT)
-    const token = Buffer.from(
-      JSON.stringify({
-        email: ADMIN_EMAIL,
-        role: "admin",
-        exp: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
-      })
-    ).toString("base64");
+    if (!settings.passwordHash.startsWith("scrypt:")) updateAdminPassword(hashPassword(password));
+    const token = createSession(settings.email);
 
     const response = NextResponse.json({
       success: true,
       token,
       user: {
-        email: ADMIN_EMAIL,
+        email: settings.email,
         name: "Admin",
         role: "admin",
       },
@@ -54,7 +52,7 @@ export async function POST(request: NextRequest) {
     });
 
     return response;
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Login failed" },
       { status: 400 }

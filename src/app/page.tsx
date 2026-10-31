@@ -98,7 +98,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {services.map((service, index) => (
+            {services.map((service) => (
               <Link
                 key={service.id}
                 href={`/services#${service.id}`}
@@ -132,7 +132,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {apps.slice(0, 6).map((app, index) => (
+            {apps.slice(0, 6).map((app) => (
               <div
                 key={app.id}
                 className="group bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden hover:border-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300"
@@ -193,7 +193,7 @@ export default function HomePage() {
               { icon: "✓", title: "Secure Architecture", desc: "Enterprise-grade security in every solution" },
               { icon: "✓", title: "Fast Delivery", desc: "Agile methodology ensuring timely delivery" },
               { icon: "✓", title: "Ongoing Support", desc: "Dedicated support and maintenance after launch" },
-            ].map((item, index) => (
+            ].map((item) => (
               <div
                 key={item.title}
                 className="flex items-start gap-4 p-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800"
@@ -285,7 +285,7 @@ export default function HomePage() {
               { title: "TaskFlow Pro v2.0 Released", category: "Product Update", date: "Mar 15, 2025", desc: "New Kanban boards, real-time collaboration, and dark mode." },
               { title: "SecureVault 1.5 Now Available", category: "Product Update", date: "Mar 10, 2025", desc: "Breach monitoring, improved sync, and redesigned UI." },
               { title: "AIDesigner 2.0 Launch", category: "Product Update", date: "Mar 5, 2025", desc: "3x faster AI model, vector export, and team collaboration." },
-            ].map((post, index) => (
+            ].map((post) => (
               <div
                 key={post.title}
                 className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6 hover:border-indigo-500/50 hover:shadow-xl transition-all duration-300"

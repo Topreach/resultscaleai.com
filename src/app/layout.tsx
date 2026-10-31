@@ -1,8 +1,9 @@
+import Script from "next/script";
+import { connection } from "next/server";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 import { getAdminSettings } from "@/lib/store/db";
 
 const geistSans = Geist({
@@ -36,11 +37,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  await connection();
   // Load Google configuration for SEO/analytics scripts
   let googleVerification = "";
   let analyticsId = "";
@@ -71,17 +73,17 @@ export default function RootLayout({
         {/* Google Analytics (gtag.js) */}
         {analyticsId && (
           <>
-            <script
+            <Script id="google-script-1"
               async
               src={`https://www.googletagmanager.com/gtag/js?id=${analyticsId}`}
             />
-            <script
+            <Script id="google-script-2"
               dangerouslySetInnerHTML={{
                 __html: `
                   window.dataLayer = window.dataLayer || [];
                   function gtag(){dataLayer.push(arguments);}
                   gtag('js', new Date());
-                  gtag('config', '${analyticsId}');
+                  gtag('config', ${JSON.stringify(analyticsId).replace(/</g, "\\u003c")});
                 `,
               }}
             />
@@ -90,14 +92,14 @@ export default function RootLayout({
 
         {/* Google Tag Manager */}
         {tagManagerId && (
-          <script
+          <Script id="google-script-3"
             dangerouslySetInnerHTML={{
               __html: `
                 (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
                 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
                 j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-                })(window,document,'script','dataLayer','${tagManagerId}');
+                })(window,document,'script','dataLayer',${JSON.stringify(tagManagerId).replace(/</g, "\\u003c")});
               `,
             }}
           />

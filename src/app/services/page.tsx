@@ -126,7 +126,7 @@ export default function ServicesPage() {
                     </ul>
                   )}
                   <Link
-                    href="/contact"
+                    href={pkg.price > 0 ? `/checkout?kind=service&product=${encodeURIComponent(pkg.id)}` : "/contact"}
                     className="block w-full text-center px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-cyan-500 rounded-xl hover:from-indigo-700 hover:to-cyan-600 transition-all duration-200 shadow-lg shadow-indigo-500/25"
                   >
                     {pkg.cta || "Get Started"}

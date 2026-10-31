@@ -7,9 +7,16 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // In production, this would authenticate with an API
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); setBusy(true); setError("");
+    try {
+      const response = await fetch("/api/account/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      window.location.assign("/account");
+    } catch (error) { setError(error instanceof Error ? error.message : "Please try again"); setBusy(false); }
   };
 
   return (
@@ -21,6 +28,7 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {error && <p role="alert" className="text-red-600">{error}</p>}
           <div>
             <label htmlFor="email" className="block text-sm font-medium mb-2">Email</label>
             <input
@@ -49,6 +57,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
+            disabled={busy}
             className="w-full px-6 py-3.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-cyan-500 rounded-xl hover:from-indigo-700 hover:to-cyan-600 transition-all duration-200 shadow-lg shadow-indigo-500/25"
           >
             Sign In

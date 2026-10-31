@@ -1,3 +1,5 @@
+import { validMonetization } from "@/lib/validation";
+import { getSession } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { getMonetizationConfig, updateMonetizationConfig } from "@/lib/store/db";
 
@@ -16,8 +18,10 @@ export async function GET() {
 
 // PUT /api/admin/monetization - Update monetization config
 export async function PUT(request: NextRequest) {
+  if (!getSession(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await request.json();
+    if (!validMonetization(body)) return NextResponse.json({ error: "Invalid or incomplete data" }, { status: 400 });
     updateMonetizationConfig(body);
     return NextResponse.json({ success: true, message: "Monetization settings updated" });
   } catch {
