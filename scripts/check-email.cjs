@@ -2,12 +2,17 @@
 const { loadEnvConfig } = require('@next/env');
 const { Resolver } = require('node:dns').promises;
 const { createMailTransport } = require('../src/lib/smtp.cjs');
-loadEnvConfig(process.cwd(), false, { info() {}, error() {} });
+const { safeSmtpError } = require('./email-diagnostic-details.cjs');
+const smtpKeys = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM', 'SMTP_TO'];
+const inheritedKeys = smtpKeys.filter((key) => Object.hasOwn(process.env, key));
+const { loadedEnvFiles } = loadEnvConfig(process.cwd(), false, { info() {}, error() {} });
 
 async function main() {
   const env = process.env;
+  console.log(`Environment files read: ${loadedEnvFiles.map((file) => file.path).join(', ') || 'none'}`);
+  console.log(`SMTP keys already set in process environment: ${inheritedKeys.join(', ') || 'none'}`);
   console.log('Configuration presence (secret values are never printed):');
-  for (const key of ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM', 'SMTP_TO']) console.log(`${key}: ${env[key] ? 'SET' : 'NOT SET'}`);
+  for (const key of smtpKeys) console.log(`${key}: ${env[key] ? 'SET' : 'NOT SET'}`);
   const domain = 'resultscaleai.com';
   const resolver = new Resolver({ timeout: 3000, tries: 1 });
   for (const [type, name] of [['MX', domain], ['TXT', domain], ['TXT', `_dmarc.${domain}`]]) {
@@ -38,7 +43,11 @@ async function main() {
     console.log('Check the recipient inbox/spam and message Authentication-Results for SPF, DKIM and DMARC.');
   } catch (error) {
     // Avoid printing provider response text, credentials, or environment values.
-    console.error(JSON.stringify({ result: 'FAIL', code: error.code || (['SMTP_NOT_CONFIGURED', 'SMTP_INVALID_PORT'].includes(error.message) ? error.message : 'SMTP_CHECK_FAILED'), responseCode: error.responseCode || null, command: error.command || null }));
+    const details = safeSmtpError(error);
+    console.error(JSON.stringify(details));
+    if (details.appPasswordRequired) console.log('Google requests an app password for the exact SMTP_USER account. Do not paste that password into chat.');
+    else if (details.browserSignInRequired) console.log('Google requests an account sign-in review. Check account security notices in the Google account used as SMTP_USER.');
+    if (inheritedKeys.length) console.log('Process environment values take precedence over .env files. Changing .env.local may not change those values.');
     process.exitCode = 1;
   } finally { if (transport) transport.close(); }
 }
