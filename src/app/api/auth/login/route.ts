@@ -34,7 +34,6 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json({
       success: true,
-      token,
       user: {
         email: settings.email,
         name: "Admin",

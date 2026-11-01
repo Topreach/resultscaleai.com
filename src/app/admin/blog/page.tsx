@@ -36,10 +36,11 @@ export default function AdminBlogPage() {
     const loadPosts = async () => {
       try {
         const res = await fetch("/api/blog");
-        const data = await res.json();
+        if (!res.ok) throw new Error("Could not load content. Please refresh to retry.");
+      const data = await res.json();
         setPosts(data);
       } catch (err) {
-        console.error("Failed to fetch posts", err);
+        setMessage(err instanceof Error ? err.message : "Could not load posts");
       } finally {
         setLoading(false);
       }
@@ -66,12 +67,13 @@ export default function AdminBlogPage() {
     if (!confirm("Are you sure you want to delete this post?")) return;
     try {
       const res = await fetch(`/api/blog/${id}`, { method: "DELETE" });
+      if (!res.ok) { const result = await res.json().catch(() => ({})); setMessage(result.error || "Failed to delete post"); return; }
       if (res.ok) {
         setPosts(posts.filter((p) => p.id !== id));
         setMessage("Post deleted successfully");
       }
-    } catch (err) {
-      console.error("Failed to delete post", err);
+    } catch {
+      setMessage("Failed to delete post. Please try again.");
     }
   };
 
@@ -116,8 +118,9 @@ export default function AdminBlogPage() {
       }
 
       if (res.ok) {
-        setMessage(editingId ? "Post updated successfully" : "Post created successfully");
+        const successMessage = editingId ? "Post updated successfully" : "Post created successfully";
         resetForm();
+        setMessage(successMessage);
         // Reload posts
         const updatedRes = await fetch("/api/blog");
         const updatedData = await updatedRes.json();

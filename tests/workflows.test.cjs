@@ -239,3 +239,38 @@ test('contact notification records missing configuration, SMTP acceptance and fa
     for (const key of keys) { if (original[key] === undefined) delete process.env[key]; else process.env[key] = original[key]; }
   }
 });
+
+test('admin sign-in uses HttpOnly cookies and password changes revoke other sessions', async () => {
+  const password = 'admin-test-password';
+  db.updateAdminPassword(auth.hashPassword(password));
+  const email = db.getAdminSettings().email;
+  const login = require('../src/app/api/auth/login/route.ts');
+  const signedIn = await login.POST(request('/api/auth/login', { email, password }));
+  assert.equal(signedIn.status, 200);
+  assert.equal((await signedIn.json()).token, undefined);
+  const cookie = signedIn.headers.get('set-cookie');
+  assert.match(cookie, /HttpOnly/i);
+  const token = cookie.match(/admin_token=([^;]+)/)[1];
+  const otherToken = auth.createSession(email);
+  const settings = require('../src/app/api/admin/settings/route.ts');
+  assert.equal((await settings.PUT(request('/api/admin/settings', { currentPassword: password, newPassword: 'replacement-password' }, token, 'PUT'))).status, 200);
+  assert.ok(auth.getSession(request('/api/auth/me', null, token, 'GET')));
+  assert.equal(auth.getSession(request('/api/auth/me', null, otherToken, 'GET')), null);
+  assert.equal(auth.verifyPassword('replacement-password', db.getAdminSettings().passwordHash), true);
+});
+
+test('invalid Google settings and contact updates do not overwrite unrelated data', async () => {
+  const token = auth.createSession(db.getAdminSettings().email);
+  const settings = require('../src/app/api/admin/settings/route.ts');
+  const original = db.getAdminSettings().google;
+  assert.equal((await settings.PUT(request('/api/admin/settings', { google: { ...original, analyticsMeasurementId: "G-';alert(1)//" } }, token, 'PUT'))).status, 400);
+  assert.deepEqual(db.getAdminSettings().google, original);
+  const contact = db.getContactRequests()[0];
+  const handler = require('../src/app/api/contacts/[id]/route.ts');
+  const response = await handler.PATCH(request(`/api/contacts/${contact.id}`, { status: 'replied', email: 'replacement@example.com', id: 'changed-id' }, token, 'PATCH'), { params: Promise.resolve({ id: contact.id }) });
+  assert.equal(response.status, 200);
+  const updated = await response.json();
+  assert.equal(updated.email, contact.email);
+  assert.equal(updated.id, contact.id);
+  assert.equal(updated.status, 'replied');
+});

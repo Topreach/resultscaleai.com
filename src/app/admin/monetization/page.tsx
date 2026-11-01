@@ -15,6 +15,7 @@ const defaultConfig: MonetizationConfig = {
 export default function AdminMonetizationPage() {
   const [config, setConfig] = useState<MonetizationConfig>(defaultConfig);
   const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState<"adsense" | "subscriptions" | "premium" | "affiliate" | "packages" | "membership">("adsense");
@@ -22,12 +23,14 @@ export default function AdminMonetizationPage() {
   const loadConfig = async () => {
     try {
       const res = await fetch("/api/admin/monetization");
+      if (!res.ok) throw new Error("Could not load monetization settings");
       if (res.ok) {
         const data = await res.json();
         setConfig(data);
+        setLoaded(true);
       }
     } catch {
-      // use defaults
+      setMessage({ type: "error", text: "Settings could not be loaded. Saving is disabled to protect your existing configuration. Refresh to retry." });
     } finally {
       setLoading(false);
     }
@@ -42,6 +45,7 @@ export default function AdminMonetizationPage() {
   }, []);
 
   const saveConfig = async () => {
+    if (!loaded) return;
     setSaving(true);
     setMessage(null);
     try {
@@ -89,7 +93,7 @@ export default function AdminMonetizationPage() {
           </div>
           <button
             onClick={saveConfig}
-            disabled={saving}
+            disabled={saving || !loaded}
             className="px-6 py-2.5 text-sm font-medium text-white bg-linear-to-r from-indigo-600 to-cyan-500 rounded-xl hover:from-indigo-700 hover:to-cyan-600 transition-all disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save All Settings"}

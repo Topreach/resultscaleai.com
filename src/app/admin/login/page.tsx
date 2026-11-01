@@ -29,11 +29,7 @@ export default function AdminLoginPage() {
         return;
       }
 
-      // Store token in localStorage for cross-domain uploads (uploads.resultscaleai.com)
-      // The httpOnly cookie works for same-domain requests, but cross-domain needs explicit token
-      if (data.token) {
-        localStorage.setItem("admin_token", data.token);
-      }
+      localStorage.removeItem("admin_token"); // Remove legacy tokens; authentication uses the HttpOnly cookie.
 
       router.push("/admin");
     } catch {

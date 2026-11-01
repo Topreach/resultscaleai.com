@@ -23,9 +23,10 @@ export default function AdminLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [authenticated, setAuthenticated] = useState<boolean | null>(
-    pathname === "/admin/login" ? false : null
-  );
+  const [verifiedPath, setVerifiedPath] = useState<string | null>(null);
+  const [authError, setAuthError] = useState("");
+  const [authAttempt, setAuthAttempt] = useState(0);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const isLoginPage = pathname === "/admin/login";
@@ -41,45 +42,52 @@ export default function AdminLayout({
       try {
         const res = await fetch("/api/auth/me");
         if (cancelled) return;
-        if (!res.ok) {
-          router.push("/admin/login");
-          return;
-        }
-        setAuthenticated(true);
+        if (res.status === 401) { setVerifiedPath(null); router.replace("/admin/login"); return; }
+        if (!res.ok) throw new Error("Authentication service is unavailable. Please retry.");
+        setAuthError("");
+        setVerifiedPath(pathname);
       } catch {
-        if (!cancelled) router.push("/admin/login");
+        if (!cancelled) setAuthError("Could not verify your session. Check your connection and retry.");
       }
     }
     checkAuth();
+    const interval = setInterval(checkAuth, 60_000);
+    window.addEventListener("focus", checkAuth);
 
     return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", checkAuth);
       cancelled = true;
     };
-  }, [isLoginPage, router]);
+  }, [isLoginPage, pathname, router, authAttempt]);
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    localStorage.removeItem("admin_token");
-    setAuthenticated(false);
-    router.push("/admin/login");
+    setLoggingOut(true);
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) throw new Error("Sign out failed");
+      localStorage.removeItem("admin_token");
+      setVerifiedPath(null);
+      router.replace("/admin/login");
+    } catch { setAuthError("Sign out failed. Your session may still be active. Please retry."); }
+    finally { setLoggingOut(false); }
   };
 
   if (isLoginPage) {
     return <>{children}</>;
   }
 
-  if (authenticated === null) {
+  if (verifiedPath !== pathname) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#0a0a0f]">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-500">Checking authentication...</p>
+          {authError ? <><p role="alert" className="text-red-600">{authError}</p><button className="mt-4 text-indigo-600" onClick={() => { setAuthError(""); setAuthAttempt((attempt) => attempt + 1); }}>Retry authentication</button></> : <p role="status" className="text-gray-500">Checking authentication...</p>}
         </div>
       </div>
     );
   }
 
-  if (!authenticated) return null;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0f]">
@@ -88,6 +96,9 @@ export default function AdminLayout({
         <div className="flex items-center justify-between px-4 h-16">
           <div className="flex items-center gap-4">
             <button
+              aria-label="Toggle admin navigation"
+              aria-expanded={sidebarOpen}
+              aria-controls="admin-navigation"
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
             >
@@ -110,17 +121,18 @@ export default function AdminLayout({
               View Site
             </Link>
             <button
+              disabled={loggingOut}
               onClick={handleLogout}
               className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
             >
-              Logout
+              {loggingOut ? "Signing out..." : "Logout"}
             </button>
           </div>
         </div>
       </div>
 
       {/* Sidebar */}
-      <aside
+      <aside id="admin-navigation"
         className={`fixed top-16 left-0 bottom-0 w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transform transition-transform duration-200 lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         } z-40`}
@@ -132,6 +144,7 @@ export default function AdminLayout({
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={isActive ? "page" : undefined}
                 onClick={() => setSidebarOpen(false)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                   isActive
@@ -156,9 +169,10 @@ export default function AdminLayout({
       )}
 
       {/* Main Content */}
-      <main className="lg:ml-64 pt-16">
+      <div className="lg:ml-64 pt-16">
+        {authError && <p role="alert" className="p-4 text-red-600">{authError}</p>}
         {children}
-      </main>
+      </div>
     </div>
   );
 }

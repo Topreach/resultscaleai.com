@@ -5,6 +5,8 @@ import { ContactRequest } from "@/types";
 
 export default function AdminContactsPage() {
   const [contacts, setContacts] = useState<ContactRequest[]>([]);
+  const [error, setError] = useState("");
+  const [updatingId, setUpdatingId] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedContact, setSelectedContact] = useState<ContactRequest | null>(null);
 
@@ -12,51 +14,34 @@ export default function AdminContactsPage() {
     const loadContacts = async () => {
       try {
         const res = await fetch("/api/contacts");
+        if (!res.ok) throw new Error("Could not load enquiries. Please refresh to retry.");
         if (res.ok) {
           const data = await res.json();
           setContacts(data);
         }
       } catch {
-        // Fallback
+        setError("Could not load enquiries. Please refresh to retry.");
       }
       setLoading(false);
     };
     loadContacts();
   }, []);
 
-  const markAsRead = async (id: string) => {
+  const updateStatus = async (id: string, status: ContactRequest["status"]) => {
+    if (updatingId) return false;
+    setUpdatingId(id); setError("");
     try {
-      const res = await fetch(`/api/contacts/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "read" }),
-      });
-      if (res.ok) {
-        setContacts(contacts.map((c) =>
-          c.id === id ? { ...c, status: "read" as const } : c
-        ));
-      }
-    } catch (err) {
-      console.error("Failed to update contact", err);
-    }
+      const response = await fetch(`/api/contacts/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+      if (!response.ok) throw new Error("Could not update enquiry");
+      const updated: ContactRequest = await response.json();
+      setContacts((contacts) => contacts.map((contact) => contact.id === id ? updated : contact));
+      setSelectedContact((contact) => contact?.id === id ? updated : contact);
+      return true;
+    } catch { setError("Could not update enquiry. Your change was not saved; please retry."); return false; }
+    finally { setUpdatingId(""); }
   };
-
-  const markAsReplied = async (id: string) => {
-    try {
-      const res = await fetch(`/api/contacts/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "replied" }),
-      });
-      if (res.ok) {
-        setContacts(contacts.map((c) =>
-          c.id === id ? { ...c, status: "replied" as const } : c
-        ));
-      }
-    } catch (err) {
-      console.error("Failed to update contact", err);
-    }
-  };
+  const markAsRead = (id: string) => updateStatus(id, "read");
+  const markAsReplied = (id: string) => updateStatus(id, "replied");
 
   const statusColors = {
     new: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
@@ -90,7 +75,8 @@ export default function AdminContactsPage() {
           </div>
         </div>
 
-        {contacts.length === 0 ? (
+        {error && <p role="alert" className="mb-4 text-red-600">{error}</p>}
+        {contacts.length === 0 && !error ? (
           <div className="text-center py-20 text-gray-500">
             <div className="text-6xl mb-4">✉️</div>
             <p className="text-lg font-medium mb-2">No contact requests yet</p>
@@ -139,6 +125,7 @@ export default function AdminContactsPage() {
                   <div className="flex gap-3">
                     {contact.status !== "replied" && (
                       <button
+                        disabled={!!updatingId}
                         onClick={(e) => {
                           e.stopPropagation();
                           markAsReplied(contact.id);
@@ -164,11 +151,15 @@ export default function AdminContactsPage() {
           >
             <div
               className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-8"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="contact-detail-heading"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold">Contact Details</h2>
+                <h2 id="contact-detail-heading" className="text-xl font-bold">Contact Details</h2>
                 <button
+                  aria-label="Close contact details"
                   onClick={() => setSelectedContact(null)}
                   className="text-gray-400 hover:text-gray-600"
                 >
@@ -178,6 +169,7 @@ export default function AdminContactsPage() {
                 </button>
               </div>
 
+              {error && <p role="alert" className="mb-4 text-red-600">{error}</p>}
               <div className="space-y-4">
                 <div>
                   <label className="text-sm text-gray-500">Name</label>
@@ -215,16 +207,16 @@ export default function AdminContactsPage() {
 
               <div className="flex gap-3 mt-6">
                 <a
-                  href={`mailto:${selectedContact.email}?subject=Re: ${selectedContact.service} Inquiry`}
+                  href={`mailto:${selectedContact.email}?subject=${encodeURIComponent(`Re: ${selectedContact.service} Inquiry`)}`}
                   className="flex-1 px-4 py-2.5 text-sm font-medium text-center text-white bg-gradient-to-r from-indigo-600 to-cyan-500 rounded-xl hover:from-indigo-700 hover:to-cyan-600 transition-all"
                 >
                   Reply via Email
                 </a>
                 {selectedContact.status !== "replied" && (
                   <button
-                    onClick={() => {
-                      markAsReplied(selectedContact.id);
-                      setSelectedContact(null);
+                    disabled={!!updatingId}
+                    onClick={async () => {
+                      if (await markAsReplied(selectedContact.id)) setSelectedContact(null);
                     }}
                     className="px-4 py-2.5 text-sm font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-xl hover:bg-green-100 dark:hover:bg-green-900/40 transition-all"
                   >

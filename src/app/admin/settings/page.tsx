@@ -20,6 +20,7 @@ export default function AdminSettingsPage() {
 
   // Google config state
   const [google, setGoogle] = useState<GoogleConfig>(defaultGoogle);
+  const [googleLoaded, setGoogleLoaded] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(true);
   const [savingGoogle, setSavingGoogle] = useState(false);
 
@@ -33,12 +34,15 @@ export default function AdminSettingsPage() {
     const loadSettings = async () => {
       try {
         const res = await fetch("/api/admin/settings");
+        if (!res.ok) throw new Error("Could not load settings");
         if (res.ok) {
           const data = await res.json();
-          if (data.google) setGoogle(data.google);
+          if (!data.google) throw new Error("Missing settings");
+          setGoogle(data.google);
+          setGoogleLoaded(true);
         }
-      } catch (err) {
-        console.error("Failed to load settings", err);
+      } catch {
+        setMessage({ type: "error", text: "Google settings could not be loaded. Saving is disabled to protect your existing settings. Refresh to retry." });
       } finally {
         setLoadingGoogle(false);
       }
@@ -89,6 +93,7 @@ export default function AdminSettingsPage() {
   // ── Google config submit ─────────────────────────────────────────────────
   const handleGoogleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!googleLoaded) return;
     setMessage(null);
     setSavingGoogle(true);
 
@@ -342,7 +347,7 @@ export default function AdminSettingsPage() {
                 <div className="flex justify-end pt-2">
                   <button
                     type="submit"
-                    disabled={savingGoogle}
+                    disabled={savingGoogle || !googleLoaded}
                     className="px-6 py-2.5 text-sm font-medium text-white bg-linear-to-r from-indigo-600 to-cyan-500 rounded-xl hover:from-indigo-700 hover:to-cyan-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {savingGoogle ? (

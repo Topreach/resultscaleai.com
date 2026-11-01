@@ -30,18 +30,14 @@ const categories: AppCategory[] = [
   "AI Tools", "Security", "Utilities", "Entertainment",
 ];
 
-// Read admin token from localStorage (stored at login time for cross-domain uploads)
-function getAdminToken(): string {
-  if (typeof window === "undefined") return "";
-  return localStorage.getItem("admin_token") || "";
-}
-
 export default function AdminAppsPage() {
   const [apps, setApps] = useState<App[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<App>({ ...emptyApp });
+  const [changelogInput, setChangelogInput] = useState("[]");
+  const [faqInput, setFaqInput] = useState("[]");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -52,14 +48,14 @@ export default function AdminAppsPage() {
   const fetchApps = async () => {
     try {
       const res = await fetch("/api/apps");
+      if (!res.ok) throw new Error("Could not load content. Please refresh to retry.");
       const data = await res.json();
       startTransition(() => {
         setApps(data);
         setLoading(false);
       });
     } catch (err) {
-      console.error("Failed to fetch apps", err);
-      startTransition(() => setLoading(false));
+      startTransition(() => { setMessage(err instanceof Error ? err.message : "Could not load apps"); setLoading(false); });
     }
   };
 
@@ -68,6 +64,9 @@ export default function AdminAppsPage() {
   }, []);
 
   const resetForm = () => {
+    if (uploading) return;
+    setChangelogInput("[]");
+    setFaqInput("[]");
     setForm({ ...emptyApp });
     setEditingId(null);
     setShowForm(false);
@@ -75,6 +74,9 @@ export default function AdminAppsPage() {
   };
 
   const handleEdit = (app: App) => {
+    if (uploading || saving) return;
+    setChangelogInput(JSON.stringify(app.changelog, null, 2));
+    setFaqInput(JSON.stringify(app.faq, null, 2));
     setForm({ ...app });
     setEditingId(app.id);
     setShowForm(true);
@@ -85,23 +87,27 @@ export default function AdminAppsPage() {
     if (!confirm("Are you sure you want to delete this app?")) return;
     try {
       const res = await fetch(`/api/apps/${id}`, { method: "DELETE" });
+      if (!res.ok) { const result = await res.json().catch(() => ({})); setMessage(result.error || "Failed to delete app"); return; }
       if (res.ok) {
         setApps(apps.filter((a) => a.id !== id));
         setMessage("App deleted successfully");
       }
-    } catch (err) {
-      console.error("Failed to delete app", err);
+    } catch {
+      setMessage("Failed to delete app. Please try again.");
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (uploading || saving) return;
     setSaving(true);
     setMessage("");
 
     try {
       const appData = {
         ...form,
+        changelog: JSON.parse(changelogInput),
+        faq: JSON.parse(faqInput),
         id: editingId || crypto.randomUUID(),
         updatedDate: new Date().toISOString().split("T")[0],
       };
@@ -122,15 +128,16 @@ export default function AdminAppsPage() {
       }
 
       if (res.ok) {
-        setMessage(editingId ? "App updated successfully" : "App created successfully");
+        const successMessage = editingId ? "App updated successfully" : "App created successfully";
         resetForm();
+        setMessage(successMessage);
         fetchApps();
       } else {
         const err = await res.json();
         setMessage(err.error || "Failed to save app");
       }
-    } catch {
-      setMessage("Failed to save app");
+    } catch (error) {
+      setMessage(error instanceof SyntaxError ? "Changelog and FAQ must contain valid JSON arrays. Your app was not saved." : "Failed to save app");
     } finally {
       setSaving(false);
     }
@@ -171,7 +178,6 @@ export default function AdminAppsPage() {
           method: "POST",
           headers: {
             "x-upload-action": "chunk",
-            "x-auth-token": getAdminToken(),
           },
           body: formData,
         });
@@ -217,7 +223,6 @@ export default function AdminAppsPage() {
 
     try {
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-      const token = getAdminToken();
 
       // ── Step 1: Init ──────────────────────────────────────────────────────
       const initRes = await fetch(UPLOAD_URL, {
@@ -225,7 +230,6 @@ export default function AdminAppsPage() {
         headers: {
           "Content-Type": "application/json",
           "x-upload-action": "init",
-          "x-auth-token": token,
         },
         body: JSON.stringify({
           filename: file.name,
@@ -269,7 +273,6 @@ export default function AdminAppsPage() {
         headers: {
           "Content-Type": "application/json",
           "x-upload-action": "complete",
-          "x-auth-token": token,
         },
         body: JSON.stringify({ uploadId }),
       });
@@ -280,7 +283,7 @@ export default function AdminAppsPage() {
       }
 
       const data = await completeRes.json();
-      setForm({ ...form, apkUrl: data.url, safety: { ...form.safety, sha256Hash: data.sha256, virusScanned: false, secureDownload: window.location.protocol === "https:" } });
+      setForm((current) => ({ ...current, apkUrl: data.url, safety: { ...current.safety, sha256Hash: data.sha256, virusScanned: false, secureDownload: window.location.protocol === "https:" } }));
       setMessage(`APK uploaded: ${data.filename}`);
 
       // Cleanup session storage
@@ -427,7 +430,7 @@ export default function AdminAppsPage() {
                 <label className="block text-sm font-medium mb-2">Requirements (one per line)</label>
                 <textarea value={form.requirements.join("\n")} onChange={(e) => setForm({ ...form, requirements: e.target.value.split("\n").filter(Boolean) })} className="w-full p-3 border rounded-xl bg-transparent" rows={3} />
               </div>
-              {(["changelog", "faq"] as const).map((key) => <details key={key}><summary className="cursor-pointer capitalize">{key} (JSON)</summary><textarea key={editingId || "new"} defaultValue={JSON.stringify(form[key], null, 2)} rows={6} className="w-full p-3 border rounded-xl bg-transparent font-mono" onBlur={(e) => { try { const value = JSON.parse(e.target.value); if (!Array.isArray(value)) throw new Error(); setForm((form) => ({ ...form, [key]: value })); } catch { setMessage(`Enter a valid JSON array for ${key}.`); } }} /></details>)}
+              {(["changelog", "faq"] as const).map((key) => <details key={key}><summary className="cursor-pointer capitalize">{key} (JSON)</summary><textarea key={editingId || "new"} value={key === "changelog" ? changelogInput : faqInput} rows={6} className="w-full p-3 border rounded-xl bg-transparent font-mono" onChange={(e) => key === "changelog" ? setChangelogInput(e.target.value) : setFaqInput(e.target.value)} /></details>)}
               {/* APK Upload */}
               <div>
                 <label className="block text-sm font-medium mb-2">APK File</label>
@@ -497,7 +500,7 @@ export default function AdminAppsPage() {
               <div className="flex gap-4 pt-4">
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || uploading}
                   className="px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-cyan-500 rounded-xl hover:from-indigo-700 hover:to-cyan-600 transition-all disabled:opacity-50"
                 >
                   {saving ? "Saving..." : editingId ? "Update App" : "Create App"}

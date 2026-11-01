@@ -20,14 +20,14 @@ const adminModules = [
   },
   {
     title: "User Management",
-    description: "Manage user accounts and permissions",
+    description: "Enable or disable registered user accounts",
     icon: "👥",
     href: "/admin/users",
     color: "from-green-500 to-emerald-500",
   },
   {
     title: "Download Analytics",
-    description: "Track downloads and user engagement metrics",
+    description: "Review recorded download totals and payment orders",
     icon: "📊",
     href: "/admin/analytics",
     color: "from-orange-500 to-red-500",
@@ -46,6 +46,8 @@ const adminModules = [
     href: "/admin/security-reports",
     color: "from-red-500 to-rose-500",
   },
+  { title: "Monetization", description: "Manage pricing, services and advertising configuration", icon: "Revenue", href: "/admin/monetization", color: "from-amber-500 to-orange-500" },
+  { title: "Settings", description: "Update admin credentials and Google integrations", icon: "Setup", href: "/admin/settings", color: "from-slate-500 to-indigo-500" },
 ];
 
 export default function AdminDashboard() {
@@ -70,16 +72,17 @@ export default function AdminDashboard() {
         </div>
       </section>
 
-      {error && <p role="alert" className="p-4 text-red-600">{error}</p>}
+      {error && <div role="alert" className="p-4 text-red-600">{error} <button className="underline" onClick={() => window.location.reload()}>Retry</button></div>}
+      {!metrics && !error && <p role="status" className="p-4">Loading dashboard metrics...</p>}
       {/* Stats Overview */}
       <section className="py-8 border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: "Total Apps", value: metrics?.totalApps ?? "?", change: "Current catalogue" },
+              { label: "Total Apps", value: metrics?.totalApps ?? (error ? "Unavailable" : "Loading..."), change: "Current catalogue" },
               { label: "Total Downloads", value: metrics?.totalDownloads.toLocaleString() ?? "?", change: "Recorded download requests" },
               { label: "Active Users", value: metrics?.activeUsers ?? "?", change: "Enabled accounts" },
-              { label: "Contact Requests", value: metrics?.contacts ?? "?", change: `${metrics?.newContacts ?? 0} unread` },
+              { label: "Contact Requests", value: metrics?.contacts ?? "?", change: metrics ? `${metrics.newContacts} unread` : "Awaiting data" },
             ].map((stat) => (
               <div key={stat.label} className="p-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
                 <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">{stat.label}</div>
