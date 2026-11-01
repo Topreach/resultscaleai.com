@@ -61,6 +61,7 @@ export interface PortfolioProject {
   title: string;
   description: string;
   images: string[];
+  imageKind?: "concept" | "screenshot";
   features: string[];
   technologies: string[];
   clientIndustry: string;

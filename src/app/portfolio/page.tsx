@@ -30,6 +30,7 @@ export default function PortfolioPage() {
               {/* Use a real project image when supplied; generated art is explicitly labelled. */}
               <div className="flex-1 min-w-0">
                 <ContentImage src={project.images[0]} fallback={illustrationFor(project.title)} alt={`${project.title} project preview`} fallbackLabel="Concept illustration - not a project screenshot" className="aspect-video rounded-2xl border border-gray-200 dark:border-gray-800" />
+                {project.imageKind === "concept" && <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">Concept preview · AI-generated design visualization</p>}
               </div>
 
               {/* Project Info */}
