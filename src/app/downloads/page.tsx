@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import AppIcon from "@/components/AppIcon";
 import type { App } from "@/types";
 import AdSlot from "@/components/AdSlot";
 
@@ -42,7 +43,7 @@ export default function DownloadsPage() {
                 className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 hover:border-indigo-500/50 hover:shadow-lg transition-all duration-300"
               >
                 <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-cyan-500 rounded-xl flex items-center justify-center text-white text-xl font-bold shrink-0">
-                  {app.name.charAt(0)}
+                  <AppIcon icon={app.icon} name={app.name} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold">{app.name}</h3>

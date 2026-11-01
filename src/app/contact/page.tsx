@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 
+import ContentImage from "@/components/ContentImage";
+import { brandVisuals } from "@/lib/visuals";
 import Captcha from "@/components/Captcha";
 
 const services = [
@@ -232,13 +234,7 @@ export default function ContactPage() {
                 </div>
               </div>
 
-              {/* Map Placeholder */}
-              <div className="aspect-video bg-gray-100 dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-800 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-4xl mb-2">📍</div>
-                  <p className="text-sm text-gray-500">Map integration coming soon</p>
-                </div>
-              </div>
+              <ContentImage fallback={brandVisuals.software} alt="Concept illustration of connected web and mobile software" className="aspect-video rounded-2xl" />
             </div>
           </div>
         </div>

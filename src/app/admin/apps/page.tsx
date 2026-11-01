@@ -412,7 +412,7 @@ export default function AdminAppsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Icon (emoji)</label>
+                <label className="block text-sm font-medium mb-1">Icon (emoji or image URL)</label>
                 <input
                   type="text"
                   value={form.icon}

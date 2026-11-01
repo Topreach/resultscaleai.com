@@ -1,4 +1,5 @@
 import Script from "next/script";
+import { brandVisuals } from "@/lib/visuals";
 import { connection } from "next/server";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -17,6 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.SITE_URL || "https://resultscaleai.com"),
+  twitter: { card: "summary_large_image", images: [brandVisuals.social] },
   title: "ResultScale AI - Building Intelligent Software Solutions",
   description:
     "ResultScale AI builds intelligent software solutions including mobile apps, web applications, AI chatbots, and cybersecurity services for businesses and individuals.",
@@ -34,6 +37,7 @@ export const metadata: Metadata = {
     description:
       "Professional software development, AI solutions, and cybersecurity services.",
     type: "website",
+    images: [{ url: brandVisuals.social, width: 1200, height: 630, alt: "Result Scale AI - software engineering and AI solutions" }],
   },
 };
 

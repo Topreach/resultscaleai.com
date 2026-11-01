@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import ContentImage from "@/components/ContentImage";
+import { illustrationFor } from "@/lib/visuals";
 import type { BlogPost } from "@/types";
 import AdSlot from "@/components/AdSlot";
 
@@ -88,11 +90,7 @@ export default function BlogPage() {
                   href={`/blog/${post.slug}`}
                   className="group bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden hover:border-indigo-500/50 hover:shadow-xl transition-all duration-300"
                 >
-                  <div className="aspect-video bg-gradient-to-br from-indigo-100 to-cyan-100 dark:from-indigo-900/20 dark:to-cyan-900/20 flex items-center justify-center">
-                    <div className="text-6xl">
-                      {post.category === "AI" ? "🤖" : post.category === "Cybersecurity" ? "🛡️" : post.category === "Web Development" ? "🌐" : post.category === "Mobile Development" ? "📱" : "💻"}
-                    </div>
-                  </div>
+                  <ContentImage src={post.image} fallback={illustrationFor(post.category)} alt={post.title} fallbackLabel="Editorial illustration" className="aspect-video" sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw" />
                   <div className="p-6">
                     <div className="flex items-center gap-2 mb-3">
                       <span className="px-2.5 py-1 text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full">

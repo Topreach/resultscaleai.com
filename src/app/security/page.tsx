@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import ContentImage from "@/components/ContentImage";
+import { brandVisuals } from "@/lib/visuals";
 
 const securityServices = [
   {
@@ -47,6 +49,7 @@ export default function SecurityPage() {
         </div>
       </section>
 
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10"><ContentImage fallback={brandVisuals.security} alt="Glass shield concept illustration for cybersecurity services" className="aspect-[21/8] rounded-2xl" sizes="(max-width: 1280px) 100vw, 1280px" /></div>
       {/* Security Services */}
       <section className="py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

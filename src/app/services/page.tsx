@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import ContentImage from "@/components/ContentImage";
+import { illustrationFor } from "@/lib/visuals";
 import { services } from "@/lib/data";
 import type { ServicePackage } from "@/types";
 
@@ -68,12 +70,7 @@ export default function ServicesPage() {
 
               {/* Visual */}
               <div className="flex-1 w-full">
-                <div className="aspect-video bg-gradient-to-br from-indigo-100 to-cyan-100 dark:from-indigo-900/30 dark:to-cyan-900/30 rounded-2xl border border-gray-200 dark:border-gray-800 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="text-8xl mb-4">{service.icon}</div>
-                    <div className="text-lg font-semibold text-gray-600 dark:text-gray-400">{service.title}</div>
-                  </div>
-                </div>
+                <ContentImage fallback={illustrationFor(service.id)} alt={`Concept illustration for ${service.title}`} className="aspect-video rounded-2xl border border-gray-200 dark:border-gray-800" />
               </div>
             </div>
           ))}

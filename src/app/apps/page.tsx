@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import AppIcon from "@/components/AppIcon";
 import type { App } from "@/types";
 import AdSlot from "@/components/AdSlot";
 
@@ -126,7 +127,7 @@ export default function AppsPage() {
                   <div className="p-6">
                     <div className="flex items-start gap-4 mb-4">
                       <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-cyan-500 rounded-xl flex items-center justify-center text-white text-2xl font-bold shrink-0">
-                        {app.name.charAt(0)}
+                        <AppIcon icon={app.icon} name={app.name} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-lg truncate">{app.name}</h3>

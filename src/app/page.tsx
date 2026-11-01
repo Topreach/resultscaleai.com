@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import AppIcon from "@/components/AppIcon";
+import Image from "next/image";
+import { brandVisuals } from "@/lib/visuals";
 import { useState, useEffect } from "react";
 import { services, testimonials, stats } from "@/lib/data";
 import type { App } from "@/types";
@@ -22,7 +25,8 @@ export default function HomePage() {
       {/* ===== HERO SECTION ===== */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         {/* Background Effects */}
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 via-gray-900 to-cyan-950" />
+        <Image src={brandVisuals.hero} alt="" fill preload sizes="100vw" className="object-cover object-right" />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/80 to-slate-950/45" />
         <div className="absolute inset-0 opacity-30">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-500 rounded-full blur-[128px] animate-float" />
           <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-cyan-500 rounded-full blur-[128px] animate-float stagger-3" />
@@ -140,7 +144,7 @@ export default function HomePage() {
                 <div className="p-6">
                   <div className="flex items-start gap-4 mb-4">
                     <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-cyan-500 rounded-xl flex items-center justify-center text-white text-xl font-bold shrink-0">
-                      {app.name.charAt(0)}
+                      <AppIcon icon={app.icon} name={app.name} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-lg truncate">{app.name}</h3>

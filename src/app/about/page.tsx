@@ -1,5 +1,7 @@
 "use client";
 
+import ContentImage from "@/components/ContentImage";
+import { brandVisuals } from "@/lib/visuals";
 import { teamMembers } from "@/lib/data";
 
 const technologies = [
@@ -50,12 +52,7 @@ export default function AboutPage() {
                 </p>
               </div>
             </div>
-            <div className="aspect-video bg-gradient-to-br from-indigo-100 to-cyan-100 dark:from-indigo-900/20 dark:to-cyan-900/20 rounded-2xl border border-gray-200 dark:border-gray-800 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-8xl mb-4">🚀</div>
-                <div className="text-lg font-semibold text-gray-600 dark:text-gray-400">Our Journey</div>
-              </div>
-            </div>
+            <ContentImage fallback={brandVisuals.ai} alt="Glass neural network illustration representing software and AI collaboration" className="aspect-video rounded-2xl border border-gray-200 dark:border-gray-800" />
           </div>
         </div>
       </section>

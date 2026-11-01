@@ -264,6 +264,11 @@ export default function AdminBlogPage() {
                 />
               </div>
 
+              <div>
+                <label htmlFor="blog-cover-image" className="block text-sm font-medium mb-1">Cover image URL</label>
+                <input id="blog-cover-image" value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} placeholder="/images/your-cover.webp or https://..." className="w-full px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl" />
+                <p className="text-xs text-gray-500 mt-2">Use an image you own or have permission to publish. A matching editorial illustration appears if no image is available.</p>
+              </div>
               {/* Tags */}
               <div>
                 <label className="block text-sm font-medium mb-2">Tags</label>

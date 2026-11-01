@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import ContentImage from "@/components/ContentImage";
+import { illustrationFor } from "@/lib/visuals";
 import AdSlot from "@/components/AdSlot";
 import type { BlogPost } from "@/types";
 
@@ -90,11 +92,7 @@ export default function BlogPostPage() {
         </header>
 
         {/* Featured Image */}
-        <div className="aspect-video bg-gradient-to-br from-indigo-100 to-cyan-100 dark:from-indigo-900/20 dark:to-cyan-900/20 rounded-2xl mb-12 flex items-center justify-center border border-gray-200 dark:border-gray-800">
-          <div className="text-8xl">
-            {post.category === "AI" ? "🤖" : post.category === "Cybersecurity" ? "🛡️" : post.category === "Web Development" ? "🌐" : post.category === "Mobile Development" ? "📱" : "💻"}
-          </div>
-        </div>
+        <ContentImage src={post.image} fallback={illustrationFor(post.category)} alt={post.title} fallbackLabel="Editorial illustration" className="aspect-video rounded-2xl mb-12" sizes="(max-width: 896px) 100vw, 896px" />
 
         {/* Content */}
         <div className="prose prose-lg dark:prose-invert max-w-none mb-12">
